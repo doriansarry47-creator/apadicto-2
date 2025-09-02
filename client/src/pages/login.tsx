@@ -12,7 +12,6 @@ import { Instagram } from "lucide-react";
 export default function Login() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { data: user } = useAuthQuery();
   const { data: user, isLoading } = useAuthQuery();
 
   const [loginForm, setLoginForm] = useState({
