@@ -31,15 +31,11 @@ export default function Login() {
   const loginMutation = useLoginMutation();
   const registerMutation = useRegisterMutation();
 
-  // Redirect if user is already authenticated
   // ✅ Redirection uniquement si l'utilisateur est connecté
   useEffect(() => {
-    if (user) {
-      setLocation("/");
     if (user && !isLoading) {
       setLocation("/dashboard"); // change la route cible
     }
-  }, [user, setLocation]);
   }, [user, isLoading, setLocation]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -51,7 +47,6 @@ export default function Login() {
         title: "Connexion réussie",
         description: "Bienvenue dans votre espace thérapeutique",
       });
-      // Redirection will happen via useEffect when user state updates
     } catch (error) {
       toast({
         title: "Erreur de connexion",
@@ -70,7 +65,6 @@ export default function Login() {
         title: "Inscription réussie",
         description: "Votre compte a été créé avec succès",
       });
-      // Redirection will happen via useEffect when user state updates
     } catch (error) {
       toast({
         title: "Erreur d'inscription",
@@ -189,7 +183,6 @@ export default function Login() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="register-role">Rôle (entrez "admin" pour les privilèges admin)</Label>
                     <Label htmlFor="register-role">Rôle (patient ou admin)</Label>
                     <Input
                       id="register-role"
@@ -208,8 +201,6 @@ export default function Login() {
             </Tabs>
           </CardContent>
         </Card>
-
-        {/* Lien Instagram */}
         {/* ✅ LIEN INSTAGRAM */}
         <div className="mt-6 text-center">
           <a
