@@ -136,3 +136,24 @@ export function useLogoutMutation() {
   });
 }
 
+export function useForgotPasswordMutation() {
+  return useMutation({
+    mutationFn: async ({ email }: { email: string }) => {
+      const response = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Password reset failed");
+      }
+
+      return response.json();
+    },
+  });
+}
+

@@ -151,6 +151,34 @@ export class AuthService {
     const hashedNewPassword = await this.hashPassword(newPassword);
     await storage.updatePassword(userId, hashedNewPassword);
   }
+
+  static async resetPassword(email: string): Promise<string> {
+    // Trouver l'utilisateur par email
+    const user = await storage.getUserByEmail(email);
+    if (!user) {
+      throw new Error('Aucun utilisateur trouvé avec cet email');
+    }
+
+    // Générer un nouveau mot de passe temporaire (8 caractères alphanumériques)
+    const temporaryPassword = this.generateRandomPassword();
+    
+    // Hacher le nouveau mot de passe
+    const hashedPassword = await this.hashPassword(temporaryPassword);
+    
+    // Mettre à jour le mot de passe dans la base de données
+    await storage.updatePassword(user.id, hashedPassword);
+    
+    return temporaryPassword;
+  }
+
+  private static generateRandomPassword(): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < 8; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  }
 }
 
 // Middleware pour vérifier l'authentification

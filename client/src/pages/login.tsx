@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { useLoginMutation, useRegisterMutation, useAuthQuery } from "@/hooks/use-auth";
+import { useLoginMutation, useRegisterMutation, useAuthQuery, useForgotPasswordMutation } from "@/hooks/use-auth";
 import { Instagram } from "lucide-react";
 
 export default function Login() {
@@ -27,8 +27,15 @@ export default function Login() {
     role: "patient",
   });
 
+  const [forgotPasswordForm, setForgotPasswordForm] = useState({
+    email: "",
+  });
+
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+
   const loginMutation = useLoginMutation();
   const registerMutation = useRegisterMutation();
+  const forgotPasswordMutation = useForgotPasswordMutation();
 
   // ✅ Redirection uniquement si l'utilisateur est connecté
   useEffect(() => {
@@ -73,6 +80,26 @@ export default function Login() {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const result = await forgotPasswordMutation.mutateAsync(forgotPasswordForm);
+      toast({
+        title: "Mot de passe réinitialisé",
+        description: `Votre nouveau mot de passe temporaire est: ${result.temporaryPassword}`,
+      });
+      setShowForgotPassword(false);
+      setForgotPasswordForm({ email: "" });
+    } catch (error) {
+      toast({
+        title: "Erreur de réinitialisation",
+        description: error instanceof Error ? error.message : "Vérifiez votre email",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="w-full max-w-md">
@@ -97,36 +124,77 @@ export default function Login() {
 
               {/* ✅ FORMULAIRE DE CONNEXION */}
               <TabsContent value="login">
-                <form onSubmit={handleLogin} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="login-email">Email</Label>
-                    <Input
-                      id="login-email"
-                      type="email"
-                      placeholder="votre@email.com"
-                      value={loginForm.email}
-                      onChange={(e) =>
-                        setLoginForm({ ...loginForm, email: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="login-password">Mot de passe</Label>
-                    <Input
-                      id="login-password"
-                      type="password"
-                      value={loginForm.password}
-                      onChange={(e) =>
-                        setLoginForm({ ...loginForm, password: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
-                    {loginMutation.isPending ? "Connexion..." : "Se connecter"}
-                  </Button>
-                </form>
+                {!showForgotPassword ? (
+                  <form onSubmit={handleLogin} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="login-email">Email</Label>
+                      <Input
+                        id="login-email"
+                        type="email"
+                        placeholder="votre@email.com"
+                        value={loginForm.email}
+                        onChange={(e) =>
+                          setLoginForm({ ...loginForm, email: e.target.value })
+                        }
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="login-password">Mot de passe</Label>
+                      <Input
+                        id="login-password"
+                        type="password"
+                        value={loginForm.password}
+                        onChange={(e) =>
+                          setLoginForm({ ...loginForm, password: e.target.value })
+                        }
+                        required
+                      />
+                    </div>
+                    <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
+                      {loginMutation.isPending ? "Connexion..." : "Se connecter"}
+                    </Button>
+                    <div className="text-center">
+                      <Button
+                        type="button"
+                        variant="link"
+                        className="text-sm text-gray-600 hover:text-indigo-600"
+                        onClick={() => setShowForgotPassword(true)}
+                      >
+                        Mot de passe oublié ?
+                      </Button>
+                    </div>
+                  </form>
+                ) : (
+                  <form onSubmit={handleForgotPassword} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="forgot-email">Email de récupération</Label>
+                      <Input
+                        id="forgot-email"
+                        type="email"
+                        placeholder="votre@email.com"
+                        value={forgotPasswordForm.email}
+                        onChange={(e) =>
+                          setForgotPasswordForm({ ...forgotPasswordForm, email: e.target.value })
+                        }
+                        required
+                      />
+                    </div>
+                    <Button type="submit" className="w-full" disabled={forgotPasswordMutation.isPending}>
+                      {forgotPasswordMutation.isPending ? "Envoi en cours..." : "Réinitialiser le mot de passe"}
+                    </Button>
+                    <div className="text-center">
+                      <Button
+                        type="button"
+                        variant="link"
+                        className="text-sm text-gray-600 hover:text-indigo-600"
+                        onClick={() => setShowForgotPassword(false)}
+                      >
+                        Retour à la connexion
+                      </Button>
+                    </div>
+                  </form>
+                )}
               </TabsContent>
 
               {/* ✅ FORMULAIRE D'INSCRIPTION */}

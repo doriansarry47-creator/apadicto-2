@@ -86,6 +86,30 @@ export function registerRoutes(app: Express) {
     }
   });
 
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ message: "Email requis" });
+      }
+
+      const temporaryPassword = await AuthService.resetPassword(email);
+      
+      // En production, vous devriez envoyer le mot de passe par email
+      // Pour cette version de développement, on le renvoie dans la réponse
+      res.json({ 
+        message: "Mot de passe réinitialisé avec succès",
+        temporaryPassword: temporaryPassword,
+        info: "Votre nouveau mot de passe temporaire est affiché ci-dessus. Veuillez le changer après connexion."
+      });
+    } catch (error) {
+      res.status(400).json({ 
+        message: error instanceof Error ? error.message : "Erreur lors de la réinitialisation" 
+      });
+    }
+  });
+
   // Routes pour les exercices (admin seulement pour création/modification)
   app.get("/api/exercises", async (req, res) => {
     try {
