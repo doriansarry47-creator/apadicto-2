@@ -50,3 +50,26 @@ export const exerciseSessions = pgTable('exercise_sessions', {
 });
 
 
+
+
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+
+export const insertExerciseSchema = createInsertSchema(exercises);
+export const selectExerciseSchema = createSelectSchema(exercises);
+
+
+
+
+export const insertPsychoEducationContentSchema = createInsertSchema(psychoEducationContent);
+export const selectPsychoEducationContentSchema = createSelectSchema(psychoEducationContent);
+
+export const insertCravingEntrySchema = createInsertSchema(cravingEntries);
+export const selectCravingEntrySchema = createSelectSchema(cravingEntries);
+
+export const insertExerciseSessionSchema = createInsertSchema(exerciseSessions);
+export const selectExerciseSessionSchema = createSelectSchema(exerciseSessions);
+
+export const insertUserSchema = createInsertSchema(users);
+export const selectUserSchema = createSelectSchema(users);
+
+
