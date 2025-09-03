@@ -3,7 +3,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import memorystore from "memorystore";
-import { registerRoutes } from "../server/routes.js";
+import { registerRoutes } from "../server/routes";
 
 const app = express();
 app.use(express.json());
