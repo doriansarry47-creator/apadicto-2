@@ -1,4 +1,5 @@
 // api/index.ts - Vercel Serverless Function Entry Point
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import memorystore from "memorystore";
@@ -54,4 +55,7 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   res.status(status).json({ message });
 });
 
-export default app;
+// Export default handler for Vercel
+export default function handler(req: VercelRequest, res: VercelResponse) {
+  return app(req as any, res as any);
+}
