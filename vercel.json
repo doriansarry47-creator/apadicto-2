@@ -2,11 +2,6 @@
   "version": 2,
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist/public",
-  "functions": {
-    "api/*.js": {
-  
-    }
-  },
   "rewrites": [
     { 
       "source": "/api/(.*)", 
