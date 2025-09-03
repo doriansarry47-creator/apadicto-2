@@ -54,9 +54,10 @@ export function useAuthQuery() {
   });
 }
 
+// PATCHED LOGIN MUTATION
 export function useLoginMutation() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async ({ email, password }: { email: string; password: string }) => {
       const response = await fetch("/api/auth/login", {
@@ -67,12 +68,24 @@ export function useLoginMutation() {
         body: JSON.stringify({ email, password }),
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Login failed");
+      // Correction robuste : tente de parser la réponse comme JSON, sinon récupère le texte
+      let data: any;
+      let text: string | undefined;
+      try {
+        data = await response.json();
+      } catch {
+        text = await response.text();
       }
 
-      return response.json();
+      if (!response.ok) {
+        throw new Error(
+          (data && data.message) ||
+          text ||
+          "Erreur inconnue lors de la connexion"
+        );
+      }
+
+      return data;
     },
     onSuccess: (data) => {
       queryClient.setQueryData(["auth", "me"], data.user);
@@ -156,4 +169,3 @@ export function useForgotPasswordMutation() {
     },
   });
 }
-
