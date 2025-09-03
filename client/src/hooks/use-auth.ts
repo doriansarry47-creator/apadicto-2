@@ -68,8 +68,8 @@ export function useLoginMutation() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Login failed");
+        const errorText = await response.text();
+        throw new Error(errorText || "Login failed");
       }
 
       return response.json();
@@ -101,8 +101,8 @@ export function useRegisterMutation() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Registration failed");
+        const errorText = await response.text();
+        throw new Error(errorText || "Registration failed");
       }
 
       return response.json();
