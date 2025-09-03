@@ -12,7 +12,7 @@ import ws from 'ws';
 neonConfig.webSocketConstructor = ws;
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 5000;
 
 // Database configuration
 const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_vRJU7LlnYG1y@ep-soft-bush-ab0hbww0-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
