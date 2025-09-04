@@ -5,11 +5,36 @@ Une application web complète pour la gestion de la thérapie sportive avec auth
 ## Fonctionnalités
 
 - 🔐 **Authentification sécurisée** : Système de connexion/inscription pour patients et administrateurs
+- 🔑 **Réinitialisation de mot de passe sécurisée** : Système basé sur des tokens avec envoi d'emails
 - 💪 **Exercices personnalisés** : Catalogue d'exercices de thérapie sportive avec instructions détaillées
 - 📚 **Contenu psychoéducatif** : Articles et ressources pour accompagner le processus de rétablissement
 - 📊 **Suivi des progrès** : Tableaux de bord pour suivre l'évolution des patients
 - 🏆 **Système de badges** : Récompenses pour motiver les utilisateurs
+- 🛡️ **Sécurité avancée** : Protection contre les attaques par force brute, audit des événements de sécurité
+- 📧 **Notifications email** : Système d'envoi d'emails pour la réinitialisation de mot de passe
 - 📱 **Interface responsive** : Compatible mobile et desktop
+
+## Sécurité
+
+L'application inclut un système de sécurité avancé :
+
+### Réinitialisation de mot de passe
+- **Tokens sécurisés** : Génération de tokens cryptographiques uniques
+- **Expiration automatique** : Tokens valides 15 minutes seulement
+- **Usage unique** : Chaque token ne peut être utilisé qu'une fois
+- **Emails professionnels** : Templates d'email sécurisés avec instructions
+
+### Protection contre les attaques
+- **Rate limiting** : Maximum 5 tentatives par email/IP par 15 minutes
+- **Blocage temporaire** : Blocage de 30 minutes après dépassement du seuil
+- **Audit de sécurité** : Enregistrement de tous les événements de sécurité
+- **Nettoyage automatique** : Suppression automatique des tokens expirés
+
+### Monitoring (Admin)
+- `GET /api/admin/security-events` : Consultation des événements de sécurité
+- `GET /api/admin/security-summary` : Résumé des activités suspectes
+- `POST /api/admin/security-cleanup` : Nettoyage manuel des données de sécurité
+- `DELETE /api/admin/security-events` : Suppression des logs de sécurité
 
 ## Technologies utilisées
 
@@ -46,11 +71,25 @@ Une application web complète pour la gestion de la thérapie sportive avec auth
 
 Dans les paramètres du projet Vercel, ajoutez ces variables d'environnement :
 
+**Variables obligatoires :**
 ```
 DATABASE_URL=postgresql://neondb_owner:npg_vRJU7LlnYG1y@ep-soft-bush-ab0hbww0-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
 SESSION_SECRET=Apaddicto2024SecretKey
 NODE_ENV=production
 ```
+
+**Variables optionnelles (pour les emails de réinitialisation) :**
+```
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+SMTP_FROM=your-email@gmail.com
+CLIENT_URL=https://your-vercel-domain.vercel.app
+```
+
+> **Note** : Si les variables SMTP ne sont pas configurées, les tokens de réinitialisation seront générés mais aucun email ne sera envoyé. Les utilisateurs devront contacter l'administrateur.
 
 #### Étape 4 : Configuration du build
 

@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { storage } from './storage.js';
 import { getEmailService } from './services/email.js';
 import { rateLimitService } from './services/rate-limit.js';
+import { SecurityAuditService } from './services/security-audit.js';
 import type { InsertUser, User } from '../shared/schema.js';
 
 export interface AuthUser {
@@ -155,10 +156,22 @@ export class AuthService {
     await storage.updatePassword(userId, hashedNewPassword);
   }
 
-  static async requestPasswordReset(email: string, ipAddress: string): Promise<{ success: boolean; message: string }> {
+  static async requestPasswordReset(email: string, ipAddress: string, userAgent?: string): Promise<{ success: boolean; message: string }> {
     // Check rate limiting
     const rateLimitResult = await rateLimitService.checkRateLimit(email, ipAddress);
     if (!rateLimitResult.allowed) {
+      // Log rate limit exceeded
+      SecurityAuditService.logEvent({
+        type: 'RATE_LIMIT_EXCEEDED',
+        email,
+        ipAddress,
+        userAgent,
+        details: { 
+          remainingAttempts: rateLimitResult.remainingAttempts,
+          blockedUntil: rateLimitResult.blockedUntil 
+        },
+      });
+
       if (rateLimitResult.blockedUntil) {
         return {
           success: false,
@@ -170,6 +183,15 @@ export class AuthService {
     // Find user by email
     const user = await storage.getUserByEmail(email);
     if (!user) {
+      // Log password reset attempt for non-existent user
+      SecurityAuditService.logEvent({
+        type: 'PASSWORD_RESET_REQUESTED',
+        email,
+        ipAddress,
+        userAgent,
+        details: { userExists: false },
+      });
+
       // For security reasons, don't reveal if the email exists
       // But still apply rate limiting
       return {
@@ -187,6 +209,18 @@ export class AuthService {
       userId: user.id,
       token: resetToken,
       expiresAt,
+    });
+
+    // Log successful password reset request
+    SecurityAuditService.logEvent({
+      type: 'PASSWORD_RESET_REQUESTED',
+      email,
+      ipAddress,
+      userAgent,
+      details: { 
+        userExists: true,
+        tokenExpires: expiresAt.toISOString() 
+      },
     });
 
     // Send email if email service is configured
@@ -209,7 +243,7 @@ export class AuthService {
     };
   }
 
-  static async resetPasswordWithToken(token: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+  static async resetPasswordWithToken(token: string, newPassword: string, ipAddress: string, userAgent?: string): Promise<{ success: boolean; message: string }> {
     if (!token || !newPassword) {
       return {
         success: false,
@@ -227,6 +261,14 @@ export class AuthService {
     // Find and validate token
     const resetToken = await storage.getPasswordResetToken(token);
     if (!resetToken) {
+      // Log invalid token attempt
+      SecurityAuditService.logEvent({
+        type: 'INVALID_TOKEN_ATTEMPT',
+        ipAddress,
+        userAgent,
+        details: { token: token.substring(0, 8) + '...' },
+      });
+
       return {
         success: false,
         message: 'Token de réinitialisation invalide ou expiré.'
@@ -235,6 +277,17 @@ export class AuthService {
 
     // Check if token is expired
     if (resetToken.expiresAt < new Date()) {
+      SecurityAuditService.logEvent({
+        type: 'INVALID_TOKEN_ATTEMPT',
+        ipAddress,
+        userAgent,
+        details: { 
+          reason: 'expired',
+          token: token.substring(0, 8) + '...',
+          expiredAt: resetToken.expiresAt.toISOString()
+        },
+      });
+
       return {
         success: false,
         message: 'Token de réinitialisation expiré.'
@@ -243,6 +296,16 @@ export class AuthService {
 
     // Check if token is already used
     if (resetToken.used) {
+      SecurityAuditService.logEvent({
+        type: 'INVALID_TOKEN_ATTEMPT',
+        ipAddress,
+        userAgent,
+        details: { 
+          reason: 'already_used',
+          token: token.substring(0, 8) + '...'
+        },
+      });
+
       return {
         success: false,
         message: 'Token de réinitialisation déjà utilisé.'
@@ -264,6 +327,15 @@ export class AuthService {
     // Update password and mark token as used
     await storage.updatePassword(user.id, hashedPassword);
     await storage.markPasswordResetTokenAsUsed(resetToken.id);
+
+    // Log successful password reset
+    SecurityAuditService.logEvent({
+      type: 'PASSWORD_RESET_COMPLETED',
+      email: user.email,
+      ipAddress,
+      userAgent,
+      details: { userId: user.id },
+    });
 
     console.log(`🔑 Password reset completed for user: ${user.email}`);
 
