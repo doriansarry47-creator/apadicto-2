@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { safeParseResponse } from "@/lib/response-utils";
 import type { PsychoEducationContent, InsertPsychoEducationContent } from "@shared/schema";
 import { insertPsychoEducationContentSchema } from "@shared/schema";
 
@@ -19,7 +20,11 @@ export default function ManageContent() {
 
   const { data: content, isLoading } = useQuery<PsychoEducationContent[]>({
     queryKey: ["admin", "psycho-education"],
-    queryFn: async () => apiRequest("GET", "/api/admin/psycho-education").then(res => res.json()),
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/admin/psycho-education");
+      const { data } = await safeParseResponse(response);
+      return data;
+    },
     initialData: [],
   });
 

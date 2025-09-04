@@ -23,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { safeParseResponse, getErrorMessage } from "@/lib/response-utils";
 import type { User, UserStats, UserBadge } from "@shared/schema";
 
 interface CravingStats {
@@ -47,17 +48,20 @@ export default function Profile() {
   const queryClient = useQueryClient();
 
   const updateUserMutation = useMutation({
-    mutationFn: (updatedUser: { firstName: string; lastName: string; email?: string }) => {
-      return fetch("/api/users/profile", {
+    mutationFn: async (updatedUser: { firstName: string; lastName: string; email?: string }) => {
+      const response = await fetch("/api/users/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updatedUser),
-      }).then((res) => {
-        if (!res.ok) {
-          return res.json().then(err => { throw new Error(err.message || "Failed to update profile") });
-        }
-        return res.json();
       });
+
+      if (!response.ok) {
+        const errorMessage = await getErrorMessage(response, "Failed to update profile");
+        throw new Error(errorMessage);
+      }
+
+      const { data } = await safeParseResponse(response);
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users/profile"] });
@@ -126,17 +130,20 @@ export default function Profile() {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const updatePasswordMutation = useMutation({
-    mutationFn: (passwords: { oldPassword: string; newPassword: string }) => {
-      return fetch("/api/users/password", {
+    mutationFn: async (passwords: { oldPassword: string; newPassword: string }) => {
+      const response = await fetch("/api/users/password", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(passwords),
-      }).then((res) => {
-        if (!res.ok) {
-          return res.json().then(err => { throw new Error(err.message || "Failed to update password") });
-        }
-        return res.json();
       });
+
+      if (!response.ok) {
+        const errorMessage = await getErrorMessage(response, "Failed to update password");
+        throw new Error(errorMessage);
+      }
+
+      const { data } = await safeParseResponse(response);
+      return data;
     },
     onSuccess: () => {
       toast({
@@ -212,13 +219,17 @@ export default function Profile() {
   };
 
   const deleteAccountMutation = useMutation({
-    mutationFn: () => {
-      return fetch("/api/users/profile", {
+    mutationFn: async () => {
+      const response = await fetch("/api/users/profile", {
         method: "DELETE",
-      }).then((res) => {
-        if (!res.ok) throw new Error("Failed to delete account");
-        return res.json();
       });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete account");
+      }
+
+      const { data } = await safeParseResponse(response);
+      return data;
     },
     onSuccess: () => {
       toast({

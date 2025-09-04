@@ -1,9 +1,11 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { createResponseError } from "./response-utils";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    // Clone the response to prevent "body stream already read" errors
+    const error = await createResponseError(res.clone());
+    throw error;
   }
 }
 
@@ -19,7 +21,9 @@ export async function apiRequest(
     credentials: "include",
   });
 
-  await throwIfResNotOk(res);
+  // Clone the response before checking if it's ok to prevent stream consumption
+  const clonedRes = res.clone();
+  await throwIfResNotOk(clonedRes);
   return res;
 }
 
@@ -37,7 +41,9 @@ export const getQueryFn: <T>(options: {
       return null;
     }
 
-    await throwIfResNotOk(res);
+    // Clone the response before error checking to prevent stream consumption
+    const clonedRes = res.clone();
+    await throwIfResNotOk(clonedRes);
     return await res.json();
   };
 

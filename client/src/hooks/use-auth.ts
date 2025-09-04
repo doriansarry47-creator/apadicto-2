@@ -1,5 +1,6 @@
 import { useState, useEffect, createContext, useContext } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { safeParseResponse, getErrorMessage } from "@/lib/response-utils";
 
 interface User {
   id: string;
@@ -46,7 +47,7 @@ export function useAuthQuery() {
         }
         throw new Error("Failed to fetch user");
       }
-      const data = await response.json();
+      const { data } = await safeParseResponse(response);
       return data.user;
     },
     retry: false,
@@ -68,21 +69,14 @@ export function useLoginMutation() {
         body: JSON.stringify({ email, password }),
       });
 
-      // Correction robuste : tente de parser la réponse comme JSON, sinon récupère le texte
-      let data: any;
-      let text: string | undefined;
-      try {
-        data = await response.json();
-      } catch {
-        text = await response.text();
-      }
+      // Use safe response parsing to prevent "body stream already read" errors
+      const { data, text } = await safeParseResponse(response);
 
       if (!response.ok) {
-        throw new Error(
-          (data && data.message) ||
+        const errorMessage = (data && data.message) ||
           text ||
-          "Erreur inconnue lors de la connexion"
-        );
+          "Erreur inconnue lors de la connexion";
+        throw new Error(errorMessage);
       }
 
       return data;
@@ -114,11 +108,12 @@ export function useRegisterMutation() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Registration failed");
+        const errorMessage = await getErrorMessage(response, "Registration failed");
+        throw new Error(errorMessage);
       }
 
-      return response.json();
+      const { data } = await safeParseResponse(response);
+      return data;
     },
     onSuccess: (data) => {
       queryClient.setQueryData(["auth", "me"], data.user);
@@ -140,7 +135,8 @@ export function useLogoutMutation() {
         throw new Error("Logout failed");
       }
 
-      return response.json();
+      const { data } = await safeParseResponse(response);
+      return data;
     },
     onSuccess: () => {
       queryClient.setQueryData(["auth", "me"], null);
@@ -161,11 +157,12 @@ export function useForgotPasswordMutation() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Password reset failed");
+        const errorMessage = await getErrorMessage(response, "Password reset failed");
+        throw new Error(errorMessage);
       }
 
-      return response.json();
+      const { data } = await safeParseResponse(response);
+      return data;
     },
   });
 }
