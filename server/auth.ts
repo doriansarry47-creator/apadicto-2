@@ -1,5 +1,9 @@
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { storage } from './storage.js';
+import { getEmailService } from './services/email.js';
+import { rateLimitService } from './services/rate-limit.js';
+import { SecurityAuditService } from './services/security-audit.js';
 import type { InsertUser, User } from '../shared/schema.js';
 
 export interface AuthUser {
@@ -152,32 +156,218 @@ export class AuthService {
     await storage.updatePassword(userId, hashedNewPassword);
   }
 
-  static async resetPassword(email: string): Promise<string> {
-    // Trouver l'utilisateur par email
+  static async requestPasswordReset(email: string, ipAddress: string, userAgent?: string): Promise<{ success: boolean; message: string }> {
+    // Check rate limiting
+    const rateLimitResult = await rateLimitService.checkRateLimit(email, ipAddress);
+    if (!rateLimitResult.allowed) {
+      // Log rate limit exceeded
+      SecurityAuditService.logEvent({
+        type: 'RATE_LIMIT_EXCEEDED',
+        email,
+        ipAddress,
+        userAgent,
+        details: { 
+          remainingAttempts: rateLimitResult.remainingAttempts,
+          blockedUntil: rateLimitResult.blockedUntil 
+        },
+      });
+
+      if (rateLimitResult.blockedUntil) {
+        return {
+          success: false,
+          message: rateLimitService.formatBlockedMessage(rateLimitResult.blockedUntil)
+        };
+      }
+    }
+
+    // Find user by email
     const user = await storage.getUserByEmail(email);
     if (!user) {
-      throw new Error('Aucun utilisateur trouvé avec cet email');
+      // Log password reset attempt for non-existent user
+      SecurityAuditService.logEvent({
+        type: 'PASSWORD_RESET_REQUESTED',
+        email,
+        ipAddress,
+        userAgent,
+        details: { userExists: false },
+      });
+
+      // For security reasons, don't reveal if the email exists
+      // But still apply rate limiting
+      return {
+        success: true,
+        message: 'Si un compte avec cet email existe, vous recevrez un lien de réinitialisation.'
+      };
     }
 
-    // Générer un nouveau mot de passe temporaire (8 caractères alphanumériques)
-    const temporaryPassword = this.generateRandomPassword();
-    
-    // Hacher le nouveau mot de passe
-    const hashedPassword = await this.hashPassword(temporaryPassword);
-    
-    // Mettre à jour le mot de passe dans la base de données
-    await storage.updatePassword(user.id, hashedPassword);
-    
-    return temporaryPassword;
+    // Generate secure token
+    const resetToken = this.generateSecureToken();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    // Save token to database
+    await storage.createPasswordResetToken({
+      userId: user.id,
+      token: resetToken,
+      expiresAt,
+    });
+
+    // Log successful password reset request
+    SecurityAuditService.logEvent({
+      type: 'PASSWORD_RESET_REQUESTED',
+      email,
+      ipAddress,
+      userAgent,
+      details: { 
+        userExists: true,
+        tokenExpires: expiresAt.toISOString() 
+      },
+    });
+
+    // Send email if email service is configured
+    const emailService = getEmailService();
+    if (emailService) {
+      try {
+        await emailService.sendPasswordResetEmail(email, resetToken, user.firstName || undefined);
+        console.log(`📧 Password reset email sent to: ${email}`);
+      } catch (error) {
+        console.error('❌ Failed to send password reset email:', error);
+        // Continue anyway - token is still valid for manual entry
+      }
+    } else {
+      console.warn('⚠️ Email service not configured - password reset token generated but no email sent');
+    }
+
+    return {
+      success: true,
+      message: 'Si un compte avec cet email existe, vous recevrez un lien de réinitialisation.'
+    };
   }
 
-  private static generateRandomPassword(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = '';
-    for (let i = 0; i < 8; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
+  static async resetPasswordWithToken(token: string, newPassword: string, ipAddress: string, userAgent?: string): Promise<{ success: boolean; message: string }> {
+    if (!token || !newPassword) {
+      return {
+        success: false,
+        message: 'Token et nouveau mot de passe requis.'
+      };
     }
-    return result;
+
+    if (newPassword.length < 6) {
+      return {
+        success: false,
+        message: 'Le mot de passe doit contenir au moins 6 caractères.'
+      };
+    }
+
+    // Find and validate token
+    const resetToken = await storage.getPasswordResetToken(token);
+    if (!resetToken) {
+      // Log invalid token attempt
+      SecurityAuditService.logEvent({
+        type: 'INVALID_TOKEN_ATTEMPT',
+        ipAddress,
+        userAgent,
+        details: { token: token.substring(0, 8) + '...' },
+      });
+
+      return {
+        success: false,
+        message: 'Token de réinitialisation invalide ou expiré.'
+      };
+    }
+
+    // Check if token is expired
+    if (resetToken.expiresAt < new Date()) {
+      SecurityAuditService.logEvent({
+        type: 'INVALID_TOKEN_ATTEMPT',
+        ipAddress,
+        userAgent,
+        details: { 
+          reason: 'expired',
+          token: token.substring(0, 8) + '...',
+          expiredAt: resetToken.expiresAt.toISOString()
+        },
+      });
+
+      return {
+        success: false,
+        message: 'Token de réinitialisation expiré.'
+      };
+    }
+
+    // Check if token is already used
+    if (resetToken.used) {
+      SecurityAuditService.logEvent({
+        type: 'INVALID_TOKEN_ATTEMPT',
+        ipAddress,
+        userAgent,
+        details: { 
+          reason: 'already_used',
+          token: token.substring(0, 8) + '...'
+        },
+      });
+
+      return {
+        success: false,
+        message: 'Token de réinitialisation déjà utilisé.'
+      };
+    }
+
+    // Get user
+    const user = await storage.getUser(resetToken.userId);
+    if (!user) {
+      return {
+        success: false,
+        message: 'Utilisateur non trouvé.'
+      };
+    }
+
+    // Hash new password
+    const hashedPassword = await this.hashPassword(newPassword);
+
+    // Update password and mark token as used
+    await storage.updatePassword(user.id, hashedPassword);
+    await storage.markPasswordResetTokenAsUsed(resetToken.id);
+
+    // Log successful password reset
+    SecurityAuditService.logEvent({
+      type: 'PASSWORD_RESET_COMPLETED',
+      email: user.email,
+      ipAddress,
+      userAgent,
+      details: { userId: user.id },
+    });
+
+    console.log(`🔑 Password reset completed for user: ${user.email}`);
+
+    return {
+      success: true,
+      message: 'Mot de passe réinitialisé avec succès.'
+    };
+  }
+
+  static async validateResetToken(token: string): Promise<{ valid: boolean; message?: string }> {
+    if (!token) {
+      return { valid: false, message: 'Token requis.' };
+    }
+
+    const resetToken = await storage.getPasswordResetToken(token);
+    if (!resetToken) {
+      return { valid: false, message: 'Token invalide.' };
+    }
+
+    if (resetToken.expiresAt < new Date()) {
+      return { valid: false, message: 'Token expiré.' };
+    }
+
+    if (resetToken.used) {
+      return { valid: false, message: 'Token déjà utilisé.' };
+    }
+
+    return { valid: true };
+  }
+
+  private static generateSecureToken(): string {
+    return crypto.randomBytes(32).toString('hex');
   }
 }
 

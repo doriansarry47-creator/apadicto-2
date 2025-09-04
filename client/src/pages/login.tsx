@@ -86,15 +86,15 @@ export default function Login() {
     try {
       const result = await forgotPasswordMutation.mutateAsync(forgotPasswordForm);
       toast({
-        title: "Mot de passe réinitialisé",
-        description: `Votre nouveau mot de passe temporaire est: ${result.temporaryPassword}`,
+        title: "Demande envoyée",
+        description: result.message,
       });
       setShowForgotPassword(false);
       setForgotPasswordForm({ email: "" });
     } catch (error) {
       toast({
-        title: "Erreur de réinitialisation",
-        description: error instanceof Error ? error.message : "Vérifiez votre email",
+        title: "Erreur",
+        description: error instanceof Error ? error.message : "Une erreur est survenue",
         variant: "destructive",
       });
     }

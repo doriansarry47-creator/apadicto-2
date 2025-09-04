@@ -14,6 +14,7 @@ import Tracking from "@/pages/tracking";
 import Education from "@/pages/education";
 import Profile from "@/pages/profile";
 import Login from "@/pages/login";
+import ResetPassword from "@/pages/reset-password";
 import NotFound from "@/pages/not-found";
 
 // Admin Page Imports
@@ -28,6 +29,7 @@ function AppContent() {
       {/* Public Routes */}
       <Route path="/login" component={Login} />
       <Route path="/register" component={Login} />
+      <Route path="/reset-password" component={ResetPassword} />
 
       {/* Protected Routes */}
       <Route path="/">
