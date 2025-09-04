@@ -117,7 +117,7 @@ app.post("/api/auth/register", async (req, res) => {
   } catch (error) {
     console.error("❌ Registration error:", error);
     res.status(500).json({ 
-      message: error.message || "Erreur lors de l'inscription" 
+      message: sanitizeErrorMessage(error)
     });
   }
 });
@@ -167,7 +167,7 @@ app.post("/api/auth/login", async (req, res) => {
   } catch (error) {
     console.error("❌ Login error:", error);
     res.status(500).json({ 
-      message: error.message || "Erreur lors de la connexion" 
+      message: sanitizeErrorMessage(error)
     });
   }
 });
@@ -206,7 +206,7 @@ app.post("/api/auth/forgot-password", async (req, res) => {
     });
   } catch (error) {
     res.status(400).json({ 
-      message: error instanceof Error ? error.message : "Erreur lors de la réinitialisation" 
+      message: sanitizeErrorMessage(error)
     });
   }
 });
@@ -422,6 +422,28 @@ const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_
 
 console.log('🚀 Starting Apaddicto server...');
 console.log('📊 Database URL:', DATABASE_URL.replace(/:[^:@]*@/, ':****@'));
+
+// Helper function to sanitize error messages
+function sanitizeErrorMessage(error: any): string {
+  const message = error instanceof Error ? error.message : String(error);
+  
+  // Check for network/connection errors
+  if (message.includes('ENOTFOUND') || message.includes('ECONNREFUSED') || message.includes('ETIMEDOUT')) {
+    return "Erreur de connexion à la base de données - Veuillez réessayer plus tard";
+  }
+  
+  // Check for authentication errors
+  if (message.includes('authentication') || message.includes('password')) {
+    return "Erreur d'authentification - Vérifiez vos identifiants";
+  }
+  
+  // For other errors, return a generic message but keep some context
+  if (message.length > 100) {
+    return "Une erreur est survenue - Veuillez réessayer";
+  }
+  
+  return message;
+}
 
 let db;
 
