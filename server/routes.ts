@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { storage } from "./storage.js";
 import { AuthService, requireAuth, requireAdmin } from "./auth.js";
 import { insertCravingEntrySchema, insertExerciseSessionSchema, insertBeckAnalysisSchema, insertUserSchema, insertExerciseSchema, insertPsychoEducationContentSchema } from "../shared/schema.js";
@@ -8,18 +8,18 @@ import { sql } from 'drizzle-orm';
 
 export function registerRoutes(app: Express) {
 
-  app.get("/api/test-db", async (_req, res) => {
+  app.get("/api/test-db", async (_req: Request, res: Response) => {
     try {
       const result = await db.execute(sql`SELECT 1 as one`);
       res.json({ ok: true, result: result.rows });
-    } catch (e) {
+    } catch (e: unknown) {
       console.error("Database connection test failed:", e);
       res.status(500).json({ ok: false, error: e instanceof Error ? e.message : String(e) });
     }
   });
   
   // Routes d'authentification
-  app.post("/api/auth/register", async (req, res) => {
+  app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
       const { email, password, firstName, lastName, role } = req.body;
       
@@ -37,14 +37,14 @@ export function registerRoutes(app: Express) {
 
       req.session.user = user;
       res.json({ user, message: "Inscription réussie" });
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(400).json({ 
         message: error instanceof Error ? error.message : "Erreur lors de l'inscription" 
       });
     }
   });
 
-  app.post("/api/auth/login", async (req, res) => {
+  app.post("/api/auth/login", async (req: Request, res: Response) => {
     try {
       const { email, password } = req.body;
       
@@ -55,15 +55,15 @@ export function registerRoutes(app: Express) {
       const user = await AuthService.login(email, password);
       req.session.user = user;
       res.json({ user, message: "Connexion réussie" });
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(401).json({ 
         message: error instanceof Error ? error.message : "Erreur de connexion" 
       });
     }
   });
 
-  app.post("/api/auth/logout", (req, res) => {
-    req.session.destroy((err) => {
+  app.post("/api/auth/logout", (req: Request, res: Response) => {
+    req.session.destroy((err: any) => {
       if (err) {
         return res.status(500).json({ message: "Erreur lors de la déconnexion" });
       }
@@ -71,7 +71,7 @@ export function registerRoutes(app: Express) {
     });
   });
 
-  app.get("/api/auth/me", requireAuth, async (req, res) => {
+  app.get("/api/auth/me", requireAuth, async (req: Request, res: Response) => {
     try {
       if (!req.session || !req.session.user) {
         return res.status(401).json({ message: "Session non valide" });
@@ -81,12 +81,12 @@ export function registerRoutes(app: Express) {
         return res.status(404).json({ message: "Utilisateur non trouvé" });
       }
       res.json({ user });
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(500).json({ message: "Erreur lors de la récupération du profil" });
     }
   });
 
-  app.post("/api/auth/forgot-password", async (req, res) => {
+  app.post("/api/auth/forgot-password", async (req: Request, res: Response) => {
     try {
       const { email } = req.body;
       
@@ -103,7 +103,7 @@ export function registerRoutes(app: Express) {
         temporaryPassword: temporaryPassword,
         info: "Votre nouveau mot de passe temporaire est affiché ci-dessus. Veuillez le changer après connexion."
       });
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(400).json({ 
         message: error instanceof Error ? error.message : "Erreur lors de la réinitialisation" 
       });
@@ -111,66 +111,66 @@ export function registerRoutes(app: Express) {
   });
 
   // Routes pour les exercices (admin seulement pour création/modification)
-  app.get("/api/exercises", async (req, res) => {
+  app.get("/api/exercises", async (req: Request, res: Response) => {
     try {
       const exercises = await storage.getExercises();
       res.json(exercises);
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(500).json({ message: "Erreur lors de la récupération des exercices" });
     }
   });
 
-  app.post("/api/exercises", requireAdmin, async (req, res) => {
+  app.post("/api/exercises", requireAdmin, async (req: Request, res: Response) => {
     try {
       const data = insertExerciseSchema.parse(req.body);
       const exercise = await storage.createExercise(data);
       res.json(exercise);
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(400).json({ message: error instanceof Error ? error.message : "Validation échouée" });
     }
   });
 
   // Routes pour le contenu psychoéducatif
-  app.get("/api/psycho-education", async (req, res) => {
+  app.get("/api/psycho-education", async (req: Request, res: Response) => {
     try {
       const content = await storage.getPsychoEducationContent();
       res.json(content);
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(500).json({ message: "Erreur lors de la récupération du contenu" });
     }
   });
 
-  app.post("/api/psycho-education", requireAdmin, async (req, res) => {
+  app.post("/api/psycho-education", requireAdmin, async (req: Request, res: Response) => {
     try {
       const data = insertPsychoEducationContentSchema.parse(req.body);
       const content = await storage.createPsychoEducationContent(data);
       res.json(content);
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(400).json({ message: error instanceof Error ? error.message : "Validation échouée" });
     }
   });
 
   // Admin routes
-  app.get("/api/admin/exercises", requireAdmin, async (req, res) => {
+  app.get("/api/admin/exercises", requireAdmin, async (req: Request, res: Response) => {
     try {
       const exercises = await storage.getAllExercises();
       res.json(exercises);
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(500).json({ message: "Failed to fetch all exercises" });
     }
   });
 
-  app.get("/api/admin/psycho-education", requireAdmin, async (req, res) => {
+  app.get("/api/admin/psycho-education", requireAdmin, async (req: Request, res: Response) => {
     try {
       const content = await storage.getAllPsychoEducationContent();
       res.json(content);
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(500).json({ message: "Failed to fetch all psycho-education content" });
     }
   });
   
   // Craving entries routes
-  app.post("/api/cravings", requireAuth, async (req, res) => {
+  app.post("/api/cravings", requireAuth, async (req: Request, res: Response) => {
     try {
       if (!req.session || !req.session.user) return res.status(401).json({ message: "Session non valide" });
       const data = insertCravingEntrySchema.parse({
@@ -179,37 +179,37 @@ export function registerRoutes(app: Express) {
       });
       const entry = await storage.createCravingEntry(data);
       res.json(entry);
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(400).json({ message: error instanceof Error ? error.message : "Validation failed" });
     }
   });
 
-  app.get("/api/cravings", requireAuth, async (req, res) => {
+  app.get("/api/cravings", requireAuth, async (req: Request, res: Response) => {
     try {
       if (!req.session || !req.session.user) return res.status(401).json({ message: "Session non valide" });
       const userId = req.session.user.id;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
       const entries = await storage.getCravingEntries(userId, limit);
       res.json(entries);
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(500).json({ message: "Failed to fetch craving entries" });
     }
   });
 
-  app.get("/api/cravings/stats", requireAuth, async (req, res) => {
+  app.get("/api/cravings/stats", requireAuth, async (req: Request, res: Response) => {
     try {
       if (!req.session || !req.session.user) return res.status(401).json({ message: "Session non valide" });
       const userId = req.session.user.id;
       const days = req.query.days ? parseInt(req.query.days as string) : undefined;
       const stats = await storage.getCravingStats(userId, days);
       res.json(stats);
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(500).json({ message: "Failed to fetch craving stats" });
     }
   });
 
   // Exercise sessions routes
-  app.post("/api/exercise-sessions", requireAuth, async (req, res) => {
+  app.post("/api/exercise-sessions", requireAuth, async (req: Request, res: Response) => {
     try {
       if (!req.session || !req.session.user) return res.status(401).json({ message: "Session non valide" });
       const data = insertExerciseSessionSchema.parse({
@@ -218,25 +218,25 @@ export function registerRoutes(app: Express) {
       });
       const session = await storage.createExerciseSession(data);
       res.json(session);
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(400).json({ message: error instanceof Error ? error.message : "Validation failed" });
     }
   });
 
-  app.get("/api/exercise-sessions", requireAuth, async (req, res) => {
+  app.get("/api/exercise-sessions", requireAuth, async (req: Request, res: Response) => {
     try {
       if (!req.session || !req.session.user) return res.status(401).json({ message: "Session non valide" });
       const userId = req.session.user.id;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
       const sessions = await storage.getExerciseSessions(userId, limit);
       res.json(sessions);
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(500).json({ message: "Failed to fetch exercise sessions" });
     }
   });
 
   // Beck analysis routes
-  app.post("/api/beck-analyses", requireAuth, async (req, res) => {
+  app.post("/api/beck-analyses", requireAuth, async (req: Request, res: Response) => {
     try {
       if (!req.session || !req.session.user) return res.status(401).json({ message: "Session non valide" });
       const data = insertBeckAnalysisSchema.parse({
@@ -245,47 +245,47 @@ export function registerRoutes(app: Express) {
       });
       const analysis = await storage.createBeckAnalysis(data);
       res.json(analysis);
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(400).json({ message: error instanceof Error ? error.message : "Validation failed" });
     }
   });
 
-  app.get("/api/beck-analyses", requireAuth, async (req, res) => {
+  app.get("/api/beck-analyses", requireAuth, async (req: Request, res: Response) => {
     try {
       if (!req.session || !req.session.user) return res.status(401).json({ message: "Session non valide" });
       const userId = req.session.user.id;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
       const analyses = await storage.getBeckAnalyses(userId, limit);
       res.json(analyses);
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(500).json({ message: "Failed to fetch Beck analyses" });
     }
   });
 
   // User stats and badges routes
-  app.get("/api/users/stats", requireAuth, async (req, res) => {
+  app.get("/api/users/stats", requireAuth, async (req: Request, res: Response) => {
     try {
       if (!req.session || !req.session.user) return res.status(401).json({ message: "Session non valide" });
       const userId = req.session.user.id;
       const stats = await storage.getUserStats(userId);
       res.json(stats);
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(500).json({ message: "Failed to fetch user stats" });
     }
   });
 
-  app.get("/api/users/badges", requireAuth, async (req, res) => {
+  app.get("/api/users/badges", requireAuth, async (req: Request, res: Response) => {
     try {
       if (!req.session || !req.session.user) return res.status(401).json({ message: "Session non valide" });
       const userId = req.session.user.id;
       const badges = await storage.getUserBadges(userId);
       res.json(badges);
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(500).json({ message: "Failed to fetch user badges" });
     }
   });
 
-  app.get("/api/users/profile", requireAuth, async (req, res) => {
+  app.get("/api/users/profile", requireAuth, async (req: Request, res: Response) => {
     try {
       if (!req.session || !req.session.user) return res.status(401).json({ message: "Session non valide" });
       const userId = req.session.user.id;
@@ -294,36 +294,36 @@ export function registerRoutes(app: Express) {
         return res.status(404).json({ message: "User not found" });
       }
       res.json(user);
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(500).json({ message: "Failed to fetch user" });
     }
   });
 
-  app.put("/api/users/profile", requireAuth, async (req, res) => {
+  app.put("/api/users/profile", requireAuth, async (req: Request, res: Response) => {
     try {
       if (!req.session || !req.session.user) return res.status(401).json({ message: "Session non valide" });
       const userId = req.session.user.id;
       const { firstName, lastName, email } = req.body;
       const updatedUser = await AuthService.updateUser(userId, { firstName, lastName, email });
       res.json(updatedUser);
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(400).json({ message: error instanceof Error ? error.message : "Erreur lors de la mise à jour du profil" });
     }
   });
 
-  app.put("/api/users/password", requireAuth, async (req, res) => {
+  app.put("/api/users/password", requireAuth, async (req: Request, res: Response) => {
     try {
       if (!req.session || !req.session.user) return res.status(401).json({ message: "Session non valide" });
       const userId = req.session.user.id;
       const { oldPassword, newPassword } = req.body;
       await AuthService.updatePassword(userId, oldPassword, newPassword);
       res.json({ message: "Mot de passe mis à jour avec succès" });
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(400).json({ message: error instanceof Error ? error.message : "Erreur lors de la mise à jour du mot de passe" });
     }
   });
 
-  app.delete("/api/users/profile", requireAuth, async (req, res) => {
+  app.delete("/api/users/profile", requireAuth, async (req: Request, res: Response) => {
     try {
       if (!req.session || !req.session.user) return res.status(401).json({ message: "Session non valide" });
       const userId = req.session.user.id;
@@ -334,13 +334,13 @@ export function registerRoutes(app: Express) {
         }
         res.json({ message: "Compte supprimé avec succès" });
       });
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(500).json({ message: "Erreur lors de la suppression du compte" });
     }
   });
 
   // Create demo user for development
-  app.post("/api/demo-user", async (req, res) => {
+  app.post("/api/demo-user", async (req: Request, res: Response) => {
     try {
       const user = await storage.createUser({
         email: "demo@example.com",
@@ -350,18 +350,18 @@ export function registerRoutes(app: Express) {
         role: "patient",
       });
       res.json(user);
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(500).json({ message: "Failed to create demo user" });
     }
   });
 
   // Route pour initialiser les données d'exemple
-  app.post("/api/seed-data", requireAdmin, async (req, res) => {
+  app.post("/api/seed-data", requireAdmin, async (req: Request, res: Response) => {
     try {
       const { seedData } = await import("./seed-data.js");
       await seedData();
       res.json({ message: "Données d'exemple créées avec succès" });
-    } catch (error) {
+    } catch (error: unknown) {
       res.status(500).json({ message: "Erreur lors de la création des données d'exemple" });
     }
   });

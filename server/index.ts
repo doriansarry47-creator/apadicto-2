@@ -31,7 +31,7 @@ app.use(
 );
 
 // Simple logging middleware
-app.use((req, res, next) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
   const start = Date.now();
   const path = req.path;
   
@@ -44,7 +44,7 @@ app.use((req, res, next) => {
 });
 
 // Register API routes
-app.post("/api/auth/register", async (req, res) => {
+app.post("/api/auth/register", async (req: Request, res: Response) => {
   try {
     const { email, password, firstName, lastName, role } = req.body;
     
@@ -93,15 +93,15 @@ app.post("/api/auth/register", async (req, res) => {
       user: req.session.user, 
       message: "Inscription réussie" 
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("❌ Registration error:", error);
     res.status(500).json({ 
-      message: error.message || "Erreur lors de l'inscription" 
+      message: error instanceof Error ? error.message : "Erreur lors de l'inscription" 
     });
   }
 });
 
-app.post("/api/auth/login", async (req, res) => {
+app.post("/api/auth/login", async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
     
@@ -143,17 +143,17 @@ app.post("/api/auth/login", async (req, res) => {
       user: req.session.user, 
       message: "Connexion réussie" 
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("❌ Login error:", error);
     res.status(500).json({ 
-      message: error.message || "Erreur lors de la connexion" 
+      message: error instanceof Error ? error.message : "Erreur lors de la connexion" 
     });
   }
 });
 
-app.post("/api/auth/logout", (req, res) => {
+app.post("/api/auth/logout", (req: Request, res: Response) => {
   const userEmail = req.session?.user?.email;
-  req.session.destroy((err) => {
+  req.session.destroy((err: any) => {
     if (err) {
       console.error("Logout error:", err);
       return res.status(500).json({ message: "Erreur lors de la déconnexion" });
@@ -163,12 +163,12 @@ app.post("/api/auth/logout", (req, res) => {
   });
 });
 
-app.get("/api/auth/me", requireAuth, (req, res) => {
+app.get("/api/auth/me", requireAuth, (req: Request, res: Response) => {
   res.json({ user: req.session.user });
 });
 
 // User management routes
-app.get("/api/users", requireAdmin, async (req, res) => {
+app.get("/api/users", requireAdmin, async (req: Request, res: Response) => {
   try {
     const allUsers = await db.select({
       id: users.id,
@@ -181,24 +181,24 @@ app.get("/api/users", requireAdmin, async (req, res) => {
     }).from(users);
     
     res.json(allUsers);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error fetching users:", error);
     res.status(500).json({ message: "Erreur lors de la récupération des utilisateurs" });
   }
 });
 
 // Exercise routes
-app.get("/api/exercises", requireAuth, async (req, res) => {
+app.get("/api/exercises", requireAuth, async (req: Request, res: Response) => {
   try {
     const allExercises = await db.select().from(exercises);
     res.json(allExercises);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error fetching exercises:", error);
     res.status(500).json({ message: "Erreur lors de la récupération des exercices" });
   }
 });
 
-app.post("/api/exercises", requireAdmin, async (req, res) => {
+app.post("/api/exercises", requireAdmin, async (req: Request, res: Response) => {
   try {
     const { title, description, duration, difficulty, category, instructions } = req.body;
     
@@ -217,14 +217,14 @@ app.post("/api/exercises", requireAdmin, async (req, res) => {
     }).returning();
 
     res.json(newExercise[0]);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error creating exercise:", error);
     res.status(500).json({ message: "Erreur lors de la création de l'exercice" });
   }
 });
 
 // Craving tracking routes
-app.post("/api/cravings", requireAuth, async (req, res) => {
+app.post("/api/cravings", requireAuth, async (req: Request, res: Response) => {
   try {
     const { intensity, triggers, notes } = req.body;
     
@@ -237,27 +237,27 @@ app.post("/api/cravings", requireAuth, async (req, res) => {
     }).returning();
 
     res.json(newCraving[0]);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error creating craving entry:", error);
     res.status(500).json({ message: "Erreur lors de l'enregistrement" });
   }
 });
 
-app.get("/api/cravings", requireAuth, async (req, res) => {
+app.get("/api/cravings", requireAuth, async (req: Request, res: Response) => {
   try {
     const userCravings = await db.select()
       .from(cravingEntries)
       .where(eq(cravingEntries.userId, req.session.user.id));
     
     res.json(userCravings);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error fetching cravings:", error);
     res.status(500).json({ message: "Erreur lors de la récupération" });
   }
 });
 
 // Exercise session routes
-app.post("/api/exercise-sessions", requireAuth, async (req, res) => {
+app.post("/api/exercise-sessions", requireAuth, async (req: Request, res: Response) => {
   try {
     const { exerciseId, duration, completed, notes } = req.body;
     
@@ -271,27 +271,27 @@ app.post("/api/exercise-sessions", requireAuth, async (req, res) => {
     }).returning();
 
     res.json(newSession[0]);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error creating exercise session:", error);
     res.status(500).json({ message: "Erreur lors de l'enregistrement" });
   }
 });
 
-app.get("/api/exercise-sessions", requireAuth, async (req, res) => {
+app.get("/api/exercise-sessions", requireAuth, async (req: Request, res: Response) => {
   try {
     const userSessions = await db.select()
       .from(exerciseSessions)
       .where(eq(exerciseSessions.userId, req.session.user.id));
     
     res.json(userSessions);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error fetching exercise sessions:", error);
     res.status(500).json({ message: "Erreur lors de la récupération" });
   }
 });
 
 // Health check
-app.get("/health", (req, res) => {
+app.get("/health", (req: Request, res: Response) => {
   res.json({ 
     status: "ok", 
     service: "apaddicto-server",
@@ -301,7 +301,7 @@ app.get("/health", (req, res) => {
 });
 
 // Database test
-app.get("/api/test-db", async (req, res) => {
+app.get("/api/test-db", async (req: Request, res: Response) => {
   try {
     const result = await db.execute(sql`SELECT 1 as test, NOW() as current_time`);
     res.json({ 
@@ -310,11 +310,11 @@ app.get("/api/test-db", async (req, res) => {
       result: result.rows,
       timestamp: new Date().toISOString()
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Database test failed:", error);
     res.status(500).json({ 
       ok: false, 
-      error: error.message,
+      error: error instanceof Error ? error.message : "Unknown error",
       timestamp: new Date().toISOString()
     });
   }
@@ -324,12 +324,12 @@ app.get("/api/test-db", async (req, res) => {
 app.use(express.static("dist/public"));
 
 // Catch all for SPA
-app.get("*", (req, res) => {
+app.get("*", (req: Request, res: Response) => {
   res.sendFile("index.html", { root: "/home/user/webapp/dist/public" });
 });
 
 // Error handling middleware
-app.use((err, req, res, next) => {
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   console.error("❌ Server error:", err);
   res.status(500).json({ message: "Erreur interne du serveur" });
 });
@@ -379,7 +379,7 @@ const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_
 console.log('🚀 Starting Apaddicto server...');
 console.log('📊 Database URL:', DATABASE_URL.replace(/:[^:@]*@/, ':****@'));
 
-let db;
+let db: any;
 
 try {
   const pool = new Pool({ connectionString: DATABASE_URL });
@@ -392,40 +392,40 @@ try {
 
 // Authentication helpers
 class AuthService {
-  static async hashPassword(password) {
+  static async hashPassword(password: string): Promise<string> {
     const saltRounds = 10;
     return bcrypt.hash(password, saltRounds);
   }
 
-  static async verifyPassword(password, hashedPassword) {
+  static async verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
     return bcrypt.compare(password, hashedPassword);
   }
 
-  static async getUserByEmail(email) {
+  static async getUserByEmail(email: string): Promise<any> {
     const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
     return result[0] || null;
   }
 
-  static async createUser(userData) {
+  static async createUser(userData: any): Promise<any> {
     const result = await db.insert(users).values(userData).returning();
     return result[0];
   }
 
-  static async getUserById(id) {
+  static async getUserById(id: string): Promise<any> {
     const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
     return result[0] || null;
   }
 }
 
 // Auth middleware
-function requireAuth(req, res, next) {
+function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.session?.user) {
     return res.status(401).json({ message: 'Authentification requise' });
   }
   next();
 }
 
-function requireAdmin(req, res, next) {
+function requireAdmin(req: Request, res: Response, next: NextFunction) {
   if (!req.session?.user) {
     return res.status(401).json({ message: 'Authentification requise' });
   }
