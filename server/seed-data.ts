@@ -1,5 +1,5 @@
 import { storage } from './storage';
-import type { InsertExercise, InsertPsychoEducationContent } from '@shared/schema';
+import type { InsertExercise, InsertPsychoEducationContent } from '../shared/schema.js';
 
 export async function seedData() {
   // Exercices de thérapie sportive

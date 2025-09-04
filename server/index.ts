@@ -96,7 +96,7 @@ app.post("/api/auth/register", async (req, res) => {
   } catch (error) {
     console.error("❌ Registration error:", error);
     res.status(500).json({ 
-      message: error.message || "Erreur lors de l'inscription" 
+      message: error instanceof Error ? error.message : "Erreur lors de l'inscription" 
     });
   }
 });
@@ -146,7 +146,7 @@ app.post("/api/auth/login", async (req, res) => {
   } catch (error) {
     console.error("❌ Login error:", error);
     res.status(500).json({ 
-      message: error.message || "Erreur lors de la connexion" 
+      message: error instanceof Error ? error.message : "Erreur lors de la connexion" 
     });
   }
 });
@@ -229,7 +229,7 @@ app.post("/api/cravings", requireAuth, async (req, res) => {
     const { intensity, triggers, notes } = req.body;
     
     const newCraving = await db.insert(cravingEntries).values({
-      userId: req.session.user.id,
+      userId: req.session.user!.id,
       intensity: intensity || 1,
       triggers: triggers || null,
       notes: notes || null,
@@ -247,7 +247,7 @@ app.get("/api/cravings", requireAuth, async (req, res) => {
   try {
     const userCravings = await db.select()
       .from(cravingEntries)
-      .where(eq(cravingEntries.userId, req.session.user.id));
+      .where(eq(cravingEntries.userId, req.session.user!.id));
     
     res.json(userCravings);
   } catch (error) {
@@ -262,7 +262,7 @@ app.post("/api/exercise-sessions", requireAuth, async (req, res) => {
     const { exerciseId, duration, completed, notes } = req.body;
     
     const newSession = await db.insert(exerciseSessions).values({
-      userId: req.session.user.id,
+      userId: req.session.user!.id,
       exerciseId: exerciseId || null,
       duration: duration || 0,
       completed: completed || false,
@@ -281,7 +281,7 @@ app.get("/api/exercise-sessions", requireAuth, async (req, res) => {
   try {
     const userSessions = await db.select()
       .from(exerciseSessions)
-      .where(eq(exerciseSessions.userId, req.session.user.id));
+      .where(eq(exerciseSessions.userId, req.session.user!.id));
     
     res.json(userSessions);
   } catch (error) {
@@ -314,7 +314,7 @@ app.get("/api/test-db", async (req, res) => {
     console.error("Database test failed:", error);
     res.status(500).json({ 
       ok: false, 
-      error: error.message,
+      error: error instanceof Error ? error.message : 'Unknown error',
       timestamp: new Date().toISOString()
     });
   }
@@ -328,11 +328,6 @@ app.get("*", (req, res) => {
   res.sendFile("index.html", { root: "/home/user/webapp/dist/public" });
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error("❌ Server error:", err);
-  res.status(500).json({ message: "Erreur interne du serveur" });
-});
 
 // Handle process termination
 process.on("SIGTERM", () => {
@@ -374,12 +369,17 @@ import {
 neonConfig.webSocketConstructor = ws;
 
 // Database configuration
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_vRJU7LlnYG1y@ep-soft-bush-ab0hbww0-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+const DATABASE_URL = process.env.DATABASE_URL;
+
+if (!DATABASE_URL) {
+  console.error('❌ DATABASE_URL environment variable is required');
+  process.exit(1);
+}
 
 console.log('🚀 Starting Apaddicto server...');
 console.log('📊 Database URL:', DATABASE_URL.replace(/:[^:@]*@/, ':****@'));
 
-let db;
+let db: any;
 
 try {
   const pool = new Pool({ connectionString: DATABASE_URL });
@@ -392,40 +392,40 @@ try {
 
 // Authentication helpers
 class AuthService {
-  static async hashPassword(password) {
+  static async hashPassword(password: string): Promise<string> {
     const saltRounds = 10;
     return bcrypt.hash(password, saltRounds);
   }
 
-  static async verifyPassword(password, hashedPassword) {
+  static async verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
     return bcrypt.compare(password, hashedPassword);
   }
 
-  static async getUserByEmail(email) {
+  static async getUserByEmail(email: string): Promise<any> {
     const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
     return result[0] || null;
   }
 
-  static async createUser(userData) {
+  static async createUser(userData: any): Promise<any> {
     const result = await db.insert(users).values(userData).returning();
     return result[0];
   }
 
-  static async getUserById(id) {
+  static async getUserById(id: string): Promise<any> {
     const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
     return result[0] || null;
   }
 }
 
 // Auth middleware
-function requireAuth(req, res, next) {
+function requireAuth(req: any, res: any, next: any) {
   if (!req.session?.user) {
     return res.status(401).json({ message: 'Authentification requise' });
   }
   next();
 }
 
-function requireAdmin(req, res, next) {
+function requireAdmin(req: any, res: any, next: any) {
   if (!req.session?.user) {
     return res.status(401).json({ message: 'Authentification requise' });
   }

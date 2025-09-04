@@ -1,0 +1,43 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["DOM", "DOM.Iterable", "ES6"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./client/src/*"],
+      "@/components/*": ["./client/src/components/*"],
+      "@/lib/*": ["./client/src/lib/*"],
+      "@/hooks/*": ["./client/src/hooks/*"],
+      "@/pages/*": ["./client/src/pages/*"],
+      "@shared/*": ["./shared/*"]
+    }
+  },
+  "include": [
+    "client/src",
+    "server",
+    "shared",
+    "api",
+    "*.ts",
+    "*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    "api/index.ts",
+    "api/index.js"
+  ]
+}

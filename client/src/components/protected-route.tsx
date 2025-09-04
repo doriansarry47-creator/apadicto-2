@@ -1,4 +1,4 @@
-import { useAuthQuery } from "@/hooks/use-auth.ts";
+import { useAuthQuery } from "@/hooks/use-auth";
 import { Redirect } from "wouter";
 import type { ReactNode } from "react";
 
