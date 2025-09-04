@@ -1,6 +1,4 @@
 "use strict";
-
-// api/index.ts
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -28,6 +26,8 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+// server/index.ts
 var index_exports = {};
 __export(index_exports, {
   default: () => index_default
@@ -41,6 +41,8 @@ var import_serverless = require("@neondatabase/serverless");
 var import_neon_serverless = require("drizzle-orm/neon-serverless");
 var import_drizzle_orm = require("drizzle-orm");
 var import_ws = __toESM(require("ws"), 1);
+
+// shared/schema.js
 var import_pg_core = require("drizzle-orm/pg-core");
 var import_drizzle_zod = require("drizzle-zod");
 var users = (0, import_pg_core.pgTable)("users", {
@@ -103,6 +105,8 @@ var insertExerciseSessionSchema = (0, import_drizzle_zod.createInsertSchema)(exe
 var selectExerciseSessionSchema = (0, import_drizzle_zod.createSelectSchema)(exerciseSessions);
 var insertUserSchema = (0, import_drizzle_zod.createInsertSchema)(users);
 var selectUserSchema = (0, import_drizzle_zod.createSelectSchema)(users);
+
+// server/index.ts
 var app = (0, import_express.default)();
 app.use(import_express.default.json());
 app.use(import_express.default.urlencoded({ extended: false }));
@@ -178,7 +182,7 @@ app.post("/api/auth/register", async (req, res) => {
   } catch (error) {
     console.error("\u274C Registration error:", error);
     res.status(500).json({
-      message: error.message || "Erreur lors de l'inscription"
+      message: error instanceof Error ? error.message : "Erreur lors de l'inscription"
     });
   }
 });
@@ -215,7 +219,7 @@ app.post("/api/auth/login", async (req, res) => {
   } catch (error) {
     console.error("\u274C Login error:", error);
     res.status(500).json({
-      message: error.message || "Erreur lors de la connexion"
+      message: error instanceof Error ? error.message : "Erreur lors de la connexion"
     });
   }
 });
@@ -352,7 +356,7 @@ app.get("/api/test-db", async (req, res) => {
     console.error("Database test failed:", error);
     res.status(500).json({
       ok: false,
-      error: error.message,
+      error: error instanceof Error ? error.message : "Unknown error",
       timestamp: (/* @__PURE__ */ new Date()).toISOString()
     });
   }
@@ -360,10 +364,6 @@ app.get("/api/test-db", async (req, res) => {
 app.use(import_express.default.static("dist/public"));
 app.get("*", (req, res) => {
   res.sendFile("index.html", { root: "/home/user/webapp/dist/public" });
-});
-app.use((err, req, res, next) => {
-  console.error("\u274C Server error:", err);
-  res.status(500).json({ message: "Erreur interne du serveur" });
 });
 process.on("SIGTERM", () => {
   console.log("Received SIGTERM, shutting down gracefully");
