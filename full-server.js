@@ -141,7 +141,7 @@ app.get('/api/test-db', async (req, res) => {
     console.error('Database test failed:', error);
     res.status(500).json({ 
       ok: false, 
-      error: error.message,
+      error: error instanceof Error ? error.message : "Unknown error",
       timestamp: new Date().toISOString()
     });
   }
@@ -200,7 +200,7 @@ app.post('/api/auth/register', async (req, res) => {
   } catch (error) {
     console.error('❌ Registration error:', error);
     res.status(500).json({ 
-      message: error.message || "Erreur lors de l'inscription" 
+      message: error instanceof Error ? error.message : "Erreur lors de l'inscription" 
     });
   }
 });
@@ -250,7 +250,7 @@ app.post('/api/auth/login', async (req, res) => {
   } catch (error) {
     console.error('❌ Login error:', error);
     res.status(500).json({ 
-      message: error.message || "Erreur lors de la connexion" 
+      message: error instanceof Error ? error.message : "Erreur lors de la connexion" 
     });
   }
 });
