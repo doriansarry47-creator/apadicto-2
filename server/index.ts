@@ -128,6 +128,15 @@ app.post("/api/auth/login", async (req, res) => {
       return res.status(401).json({ message: "Compte désactivé" });
     }
 
+    // Update last login and activity timestamps
+    await db.update(users)
+      .set({ 
+        lastLoginAt: new Date(),
+        lastActivityAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, user.id));
+
     // Set session
     req.session.user = {
       id: user.id,
@@ -298,6 +307,105 @@ app.get("/health", (req, res) => {
     timestamp: new Date().toISOString(),
     database: "connected"
   });
+});
+
+// Admin Patient Management Routes
+app.get("/api/admin/patients", requireAdmin, async (req, res) => {
+  try {
+    const allPatients = await db.select({
+      id: users.id,
+      email: users.email,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      role: users.role,
+      isActive: users.isActive,
+      lastLoginAt: users.lastLoginAt,
+      lastActivityAt: users.lastActivityAt,
+      createdAt: users.createdAt,
+      level: users.level,
+      points: users.points,
+    }).from(users).where(eq(users.role, "patient"));
+    
+    res.json(allPatients);
+  } catch (error) {
+    console.error("Error fetching patients:", error);
+    res.status(500).json({ 
+      message: "Erreur lors de la récupération des patients",
+      error: error.message 
+    });
+  }
+});
+
+app.delete("/api/admin/patients/:patientId", requireAdmin, async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    
+    // Check if patient exists and is actually a patient
+    const patient = await db.select()
+      .from(users)
+      .where(and(eq(users.id, patientId), eq(users.role, "patient")))
+      .limit(1);
+    
+    if (!patient.length) {
+      return res.status(404).json({ message: "Patient introuvable" });
+    }
+
+    // Delete related data first (foreign key constraints)
+    await db.delete(cravingEntries).where(eq(cravingEntries.userId, patientId));
+    await db.delete(exerciseSessions).where(eq(exerciseSessions.userId, patientId));
+    
+    // Delete the user
+    await db.delete(users).where(eq(users.id, patientId));
+    
+    res.json({ message: "Patient supprimé avec succès" });
+  } catch (error) {
+    console.error("Error deleting patient:", error);
+    res.status(500).json({ 
+      message: "Erreur lors de la suppression du patient",
+      error: error.message 
+    });
+  }
+});
+
+app.patch("/api/admin/patients/:patientId/status", requireAdmin, async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const { isActive } = req.body;
+    
+    if (typeof isActive !== 'boolean') {
+      return res.status(400).json({ message: "Le statut doit être un booléen" });
+    }
+    
+    // Check if patient exists
+    const patient = await db.select()
+      .from(users)
+      .where(and(eq(users.id, patientId), eq(users.role, "patient")))
+      .limit(1);
+    
+    if (!patient.length) {
+      return res.status(404).json({ message: "Patient introuvable" });
+    }
+
+    // Update patient status
+    const updatedPatient = await db.update(users)
+      .set({ 
+        isActive,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, patientId))
+      .returning();
+    
+    res.json({ 
+      message: `Patient ${isActive ? 'activé' : 'désactivé'} avec succès`,
+      patient: updatedPatient[0]
+    });
+  } catch (error) {
+    console.error("Error updating patient status:", error);
+    res.status(500).json({ 
+      message: "Erreur lors de la modification du statut",
+      error: error.message 
+    });
+  }
 });
 
 // Database test

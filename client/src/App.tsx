@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ProtectedRoute } from "@/components/protected-route";
 import { AdminRoute } from "@/components/admin-route";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 // Page Imports
 import Dashboard from "@/pages/dashboard";
@@ -20,6 +21,7 @@ import NotFound from "@/pages/not-found";
 import AdminDashboard from "@/pages/admin/dashboard";
 import ManageExercises from "@/pages/admin/manage-exercises";
 import ManageContent from "@/pages/admin/manage-content";
+import ManagePatients from "@/pages/admin/manage-patients";
 
 
 function AppContent() {
@@ -77,6 +79,11 @@ function AppContent() {
           <ManageContent />
         </AdminRoute>
       </Route>
+      <Route path="/admin/manage-patients">
+        <AdminRoute>
+          <ManagePatients />
+        </AdminRoute>
+      </Route>
 
       {/* 404 Not Found */}
       <Route component={NotFound} />
@@ -86,14 +93,16 @@ function AppContent() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <div className="min-h-screen bg-background text-foreground font-roboto">
-          <Toaster />
-          <AppContent />
-        </div>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <div className="min-h-screen bg-background text-foreground font-roboto">
+            <Toaster />
+            <AppContent />
+          </div>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

@@ -28,13 +28,15 @@ export default function AdminDashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle>View Patient Data</CardTitle>
+            <CardTitle>Gestion des Patients</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="mb-4 text-muted-foreground">
-              Review patient progress and data. (Coming soon)
+              Gérez les comptes patients, surveillez leur activité et leur temps d'inactivité.
             </p>
-            <Button disabled className="w-full">View Patients</Button>
+            <Link to="/admin/manage-patients">
+              <Button className="w-full">Gérer les Patients</Button>
+            </Link>
           </CardContent>
         </Card>
       </div>
