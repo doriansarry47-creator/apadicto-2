@@ -381,7 +381,11 @@ app.use((err, _req, res, _next) => {
 });
 var index_default = app;
 import_serverless.neonConfig.webSocketConstructor = import_ws.default;
-var DATABASE_URL = process.env.DATABASE_URL || "postgresql://neondb_owner:npg_vRJU7LlnYG1y@ep-soft-bush-ab0hbww0-pooler.eu-west-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
+var DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  console.error("\u274C DATABASE_URL environment variable is required");
+  process.exit(1);
+}
 console.log("\u{1F680} Starting Apaddicto server...");
 console.log("\u{1F4CA} Database URL:", DATABASE_URL.replace(/:[^:@]*@/, ":****@"));
 var db;
