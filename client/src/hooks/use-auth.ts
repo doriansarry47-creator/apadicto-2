@@ -46,8 +46,15 @@ export function useAuthQuery() {
         }
         throw new Error("Failed to fetch user");
       }
-      const data = await response.json();
-      return data.user;
+      
+      // Safely parse response as JSON with error handling
+      try {
+        const data = await response.json();
+        return data.user;
+      } catch {
+        // If response is not valid JSON, throw an error
+        throw new Error("Invalid response format");
+      }
     },
     retry: false,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -69,12 +76,16 @@ export function useLoginMutation() {
       });
 
       // Correction robuste : tente de parser la réponse comme JSON, sinon récupère le texte
+      // Clone response before reading to avoid "body stream already read" error
       let data: any;
       let text: string | undefined;
+      const responseClone = response.clone();
+      
       try {
         data = await response.json();
       } catch {
-        text = await response.text();
+        // Use the cloned response to read as text since original stream is consumed
+        text = await responseClone.text();
       }
 
       if (!response.ok) {
@@ -114,7 +125,16 @@ export function useRegisterMutation() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
+        // Clone response before reading to avoid "body stream already read" error
+        const responseClone = response.clone();
+        let error: any;
+        try {
+          error = await response.json();
+        } catch {
+          // If JSON parsing fails, use cloned response to read as text
+          const text = await responseClone.text();
+          error = { message: text || "Registration failed" };
+        }
         throw new Error(error.message || "Registration failed");
       }
 
@@ -140,7 +160,13 @@ export function useLogoutMutation() {
         throw new Error("Logout failed");
       }
 
-      return response.json();
+      // Safely parse response as JSON with error handling
+      try {
+        return response.json();
+      } catch {
+        // If response is not valid JSON, return empty object
+        return {};
+      }
     },
     onSuccess: () => {
       queryClient.setQueryData(["auth", "me"], null);
@@ -161,11 +187,26 @@ export function useForgotPasswordMutation() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
+        // Clone response before reading to avoid "body stream already read" error
+        const responseClone = response.clone();
+        let error: any;
+        try {
+          error = await response.json();
+        } catch {
+          // If JSON parsing fails, use cloned response to read as text
+          const text = await responseClone.text();
+          error = { message: text || "Password reset failed" };
+        }
         throw new Error(error.message || "Password reset failed");
       }
 
-      return response.json();
+      // Safely parse response as JSON with error handling
+      try {
+        return response.json();
+      } catch {
+        // If response is not valid JSON, return empty object
+        return {};
+      }
     },
   });
 }
