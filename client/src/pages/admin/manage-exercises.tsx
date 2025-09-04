@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { safeParseResponse } from "@/lib/response-utils";
 import type { Exercise, InsertExercise } from "@shared/schema";
 import { insertExerciseSchema } from "@shared/schema";
 
@@ -19,7 +20,11 @@ export default function ManageExercises() {
 
   const { data: exercises, isLoading } = useQuery<Exercise[]>({
     queryKey: ["admin", "exercises"],
-    queryFn: async () => apiRequest("GET", "/api/admin/exercises").then(res => res.json()),
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/admin/exercises");
+      const { data } = await safeParseResponse(response);
+      return data;
+    },
     initialData: [],
   });
 
