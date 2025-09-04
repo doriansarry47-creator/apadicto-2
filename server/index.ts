@@ -43,6 +43,27 @@ app.use((req, res, next) => {
   next();
 });
 
+// Ensure API routes always return JSON
+app.use('/api', (req, res, next) => {
+  res.setHeader('Content-Type', 'application/json');
+  
+  // Override res.send to ensure JSON responses
+  const originalSend = res.send;
+  res.send = function(data) {
+    if (typeof data === 'string' && !res.get('Content-Type')?.includes('application/json')) {
+      try {
+        JSON.parse(data);
+      } catch {
+        // If it's not valid JSON, wrap it
+        data = JSON.stringify({ message: data });
+      }
+    }
+    return originalSend.call(this, data);
+  };
+  
+  next();
+});
+
 // Register API routes
 app.post("/api/auth/register", async (req, res) => {
   try {
@@ -96,7 +117,7 @@ app.post("/api/auth/register", async (req, res) => {
   } catch (error) {
     console.error("❌ Registration error:", error);
     res.status(500).json({ 
-      message: error.message || "Erreur lors de l'inscription" 
+      message: sanitizeErrorMessage(error)
     });
   }
 });
@@ -146,7 +167,7 @@ app.post("/api/auth/login", async (req, res) => {
   } catch (error) {
     console.error("❌ Login error:", error);
     res.status(500).json({ 
-      message: error.message || "Erreur lors de la connexion" 
+      message: sanitizeErrorMessage(error)
     });
   }
 });
@@ -165,6 +186,29 @@ app.post("/api/auth/logout", (req, res) => {
 
 app.get("/api/auth/me", requireAuth, (req, res) => {
   res.json({ user: req.session.user });
+});
+
+app.post("/api/auth/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ message: "Email requis" });
+    }
+
+    // Simulate password reset (in production, send email)
+    const temporaryPassword = Math.random().toString(36).substring(2, 15);
+    
+    res.json({ 
+      message: "Mot de passe réinitialisé avec succès",
+      temporaryPassword: temporaryPassword,
+      info: "Votre nouveau mot de passe temporaire est affiché ci-dessus. Veuillez le changer après connexion."
+    });
+  } catch (error) {
+    res.status(400).json({ 
+      message: sanitizeErrorMessage(error)
+    });
+  }
 });
 
 // User management routes
@@ -325,13 +369,22 @@ app.use(express.static("dist/public"));
 
 // Catch all for SPA
 app.get("*", (req, res) => {
-  res.sendFile("index.html", { root: "/home/user/webapp/dist/public" });
+  res.sendFile("index.html", { root: "./dist/public" });
 });
 
 // Error handling middleware
-app.use((err, req, res, next) => {
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  // If response already sent, don't try to send again
+  if (res.headersSent) {
+    return next(err);
+  }
+  
+  const status = err.status || err.statusCode || 500;
+  const message = err.message || "Erreur interne du serveur";
   console.error("❌ Server error:", err);
-  res.status(500).json({ message: "Erreur interne du serveur" });
+  
+  // Always send JSON response for API routes
+  res.status(status).json({ message });
 });
 
 // Handle process termination
@@ -343,15 +396,6 @@ process.on("SIGTERM", () => {
 process.on("SIGINT", () => {
   console.log("Received SIGINT, shutting down gracefully");
   process.exit(0);
-});
-
-
-// Global error handler
-app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-  const status = err.status || err.statusCode || 500;
-  const message = err.message || "Internal Server Error";
-  console.error(err);
-  res.status(status).json({ message });
 });
 
 export default app;
@@ -378,6 +422,28 @@ const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_
 
 console.log('🚀 Starting Apaddicto server...');
 console.log('📊 Database URL:', DATABASE_URL.replace(/:[^:@]*@/, ':****@'));
+
+// Helper function to sanitize error messages
+function sanitizeErrorMessage(error: any): string {
+  const message = error instanceof Error ? error.message : String(error);
+  
+  // Check for network/connection errors
+  if (message.includes('ENOTFOUND') || message.includes('ECONNREFUSED') || message.includes('ETIMEDOUT')) {
+    return "Erreur de connexion à la base de données - Veuillez réessayer plus tard";
+  }
+  
+  // Check for authentication errors
+  if (message.includes('authentication') || message.includes('password')) {
+    return "Erreur d'authentification - Vérifiez vos identifiants";
+  }
+  
+  // For other errors, return a generic message but keep some context
+  if (message.length > 100) {
+    return "Une erreur est survenue - Veuillez réessayer";
+  }
+  
+  return message;
+}
 
 let db;
 
@@ -435,6 +501,15 @@ function requireAdmin(req, res, next) {
   }
   
   next();
+}
+
+// Start server in development mode
+if (process.env.NODE_ENV === 'development') {
+  const port = process.env.PORT || 3000;
+  app.listen(port, '0.0.0.0', () => {
+    console.log(`🌟 Apaddicto server is running on port ${port}`);
+    console.log(`📱 Access the app at: http://localhost:${port}`);
+  });
 }
 
 
