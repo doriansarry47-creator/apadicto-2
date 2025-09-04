@@ -15,6 +15,8 @@ export const users = pgTable("users", {
   level: integer("level").default(1),
   points: integer("points").default(0),
   isActive: boolean("is_active").default(true),
+  lastLoginAt: timestamp("last_login_at"),
+  lastActivityAt: timestamp("last_activity_at").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
