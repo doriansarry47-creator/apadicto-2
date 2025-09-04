@@ -39,17 +39,43 @@ export function useAuthQuery() {
   return useQuery({
     queryKey: ["auth", "me"],
     queryFn: async () => {
-      const response = await fetch("/api/auth/me");
+      let response: Response;
+      
+      try {
+        response = await fetch("/api/auth/me");
+      } catch (networkError) {
+        // Network errors should not prevent the app from working
+        // Return null to indicate user is not authenticated
+        return null;
+      }
+      
       if (!response.ok) {
         if (response.status === 401) {
           return null;
         }
-        throw new Error("Failed to fetch user");
+        // For other errors, try to get the error message
+        let errorMessage = "Failed to fetch user";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch {
+          // Ignore JSON parsing errors for auth check
+        }
+        throw new Error(errorMessage);
       }
+      
       const data = await response.json();
       return data.user;
     },
-    retry: false,
+    retry: (failureCount, error) => {
+      // Don't retry on 401 (unauthorized) or 403 (forbidden)
+      if (error?.message?.includes("401") || error?.message?.includes("403")) {
+        return false;
+      }
+      // Retry up to 2 times for other errors (like network issues)
+      return failureCount < 2;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
@@ -60,13 +86,19 @@ export function useLoginMutation() {
 
   return useMutation({
     mutationFn: async ({ email, password }: { email: string; password: string }) => {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      });
+      let response: Response;
+      
+      try {
+        response = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email, password }),
+        });
+      } catch (networkError) {
+        throw new Error("Erreur de connexion - Vérifiez votre connexion Internet");
+      }
 
       // Correction robuste : tente de parser la réponse comme JSON, sinon récupère le texte
       let data: any;
@@ -105,20 +137,38 @@ export function useRegisterMutation() {
       lastName?: string;
       role?: string;
     }) => {
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(userData),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Registration failed");
+      let response: Response;
+      
+      try {
+        response = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(userData),
+        });
+      } catch (networkError) {
+        throw new Error("Erreur de connexion - Vérifiez votre connexion Internet");
       }
 
-      return response.json();
+      // Robust error handling with JSON/text fallback
+      let data: any;
+      let text: string | undefined;
+      try {
+        data = await response.json();
+      } catch {
+        text = await response.text();
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          (data && data.message) ||
+          text ||
+          "Erreur inconnue lors de l'inscription"
+        );
+      }
+
+      return data;
     },
     onSuccess: (data) => {
       queryClient.setQueryData(["auth", "me"], data.user);
@@ -132,15 +182,34 @@ export function useLogoutMutation() {
   
   return useMutation({
     mutationFn: async () => {
-      const response = await fetch("/api/auth/logout", {
-        method: "POST",
-      });
-
-      if (!response.ok) {
-        throw new Error("Logout failed");
+      let response: Response;
+      
+      try {
+        response = await fetch("/api/auth/logout", {
+          method: "POST",
+        });
+      } catch (networkError) {
+        throw new Error("Erreur de connexion - Vérifiez votre connexion Internet");
       }
 
-      return response.json();
+      // Robust error handling with JSON/text fallback
+      let data: any;
+      let text: string | undefined;
+      try {
+        data = await response.json();
+      } catch {
+        text = await response.text();
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          (data && data.message) ||
+          text ||
+          "Erreur inconnue lors de la déconnexion"
+        );
+      }
+
+      return data;
     },
     onSuccess: () => {
       queryClient.setQueryData(["auth", "me"], null);
@@ -152,20 +221,38 @@ export function useLogoutMutation() {
 export function useForgotPasswordMutation() {
   return useMutation({
     mutationFn: async ({ email }: { email: string }) => {
-      const response = await fetch("/api/auth/forgot-password", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Password reset failed");
+      let response: Response;
+      
+      try {
+        response = await fetch("/api/auth/forgot-password", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email }),
+        });
+      } catch (networkError) {
+        throw new Error("Erreur de connexion - Vérifiez votre connexion Internet");
       }
 
-      return response.json();
+      // Robust error handling with JSON/text fallback
+      let data: any;
+      let text: string | undefined;
+      try {
+        data = await response.json();
+      } catch {
+        text = await response.text();
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          (data && data.message) ||
+          text ||
+          "Erreur inconnue lors de la réinitialisation"
+        );
+      }
+
+      return data;
     },
   });
 }
