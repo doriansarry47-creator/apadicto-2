@@ -52,11 +52,28 @@ export default function Profile() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updatedUser),
-      }).then((res) => {
+      }).then(async (res) => {
         if (!res.ok) {
-          return res.json().then(err => { throw new Error(err.message || "Failed to update profile") });
+          // Clone response before reading to avoid "body stream already read" error
+          const resClone = res.clone();
+          let errorData: any;
+          try {
+            errorData = await res.json();
+          } catch {
+            // If JSON parsing fails, use cloned response to read as text
+            const text = await resClone.text();
+            errorData = { message: text || "Failed to update profile" };
+          }
+          throw new Error(errorData.message || "Failed to update profile");
         }
-        return res.json();
+        
+        // Safely parse response as JSON with error handling
+        try {
+          return await res.json();
+        } catch {
+          // If response is not valid JSON, return empty object
+          return {};
+        }
       });
     },
     onSuccess: () => {
@@ -131,11 +148,28 @@ export default function Profile() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(passwords),
-      }).then((res) => {
+      }).then(async (res) => {
         if (!res.ok) {
-          return res.json().then(err => { throw new Error(err.message || "Failed to update password") });
+          // Clone response before reading to avoid "body stream already read" error
+          const resClone = res.clone();
+          let errorData: any;
+          try {
+            errorData = await res.json();
+          } catch {
+            // If JSON parsing fails, use cloned response to read as text
+            const text = await resClone.text();
+            errorData = { message: text || "Failed to update password" };
+          }
+          throw new Error(errorData.message || "Failed to update password");
         }
-        return res.json();
+        
+        // Safely parse response as JSON with error handling
+        try {
+          return await res.json();
+        } catch {
+          // If response is not valid JSON, return empty object
+          return {};
+        }
       });
     },
     onSuccess: () => {
@@ -215,9 +249,16 @@ export default function Profile() {
     mutationFn: () => {
       return fetch("/api/users/profile", {
         method: "DELETE",
-      }).then((res) => {
+      }).then(async (res) => {
         if (!res.ok) throw new Error("Failed to delete account");
-        return res.json();
+        
+        // Safely parse response as JSON with error handling
+        try {
+          return await res.json();
+        } catch {
+          // If response is not valid JSON, return empty object
+          return {};
+        }
       });
     },
     onSuccess: () => {
