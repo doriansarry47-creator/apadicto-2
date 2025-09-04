@@ -5,27 +5,66 @@ import memorystore from "memorystore";
 // import { registerRoutes } from "../server/routes.js";
 
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+
+// Enhanced CORS configuration for production security
+app.use((req, res, next) => {
+  const allowedOrigins = [
+    process.env.FRONTEND_URL || 'http://localhost:5173',
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+    'https://your-production-domain.com', // Replace with actual production domain
+  ].filter(Boolean);
+  
+  const origin = req.headers.origin;
+  
+  // In development, allow localhost origins
+  if (process.env.NODE_ENV !== 'production') {
+    allowedOrigins.push('http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:3000');
+  }
+  
+  if (allowedOrigins.includes(origin) || !origin) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
+  }
+  
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With, X-CSRF-Token');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Max-Age', '86400'); // 24 hours
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
 if (!process.env.SESSION_SECRET) {
   throw new Error("SESSION_SECRET must be set");
 }
 
+// Enhanced session configuration for production
 const MemoryStore = memorystore(session);
 app.use(
   session({
     store: new MemoryStore({
       checkPeriod: 86400000, // prune expired entries every 24h
+      max: 5000, // Maximum number of sessions
+      ttl: 1000 * 60 * 60 * 24 * 7, // 1 week TTL
     }),
     secret: process.env.SESSION_SECRET,
+    name: process.env.SESSION_NAME || 'apaddicto.sid', // Custom session name
     resave: false,
     saveUninitialized: false,
+    rolling: true, // Reset expiration on activity
     cookie: {
       secure: process.env.NODE_ENV === 'production', // Force HTTPS only in production
       httpOnly: true,
       maxAge: 1000 * 60 * 60 * 24 * 7, // 1 week
-      sameSite: 'lax', // CSRF protection
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax', // Stricter CSRF protection in production
+      domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : undefined,
     },
   }),
 );

@@ -39,18 +39,55 @@ export function useAuthQuery() {
   return useQuery({
     queryKey: ["auth", "me"],
     queryFn: async () => {
-      const response = await fetch("/api/auth/me");
-      if (!response.ok) {
-        if (response.status === 401) {
-          return null;
+      try {
+        const response = await fetch("/api/auth/me", {
+          credentials: "include", // Ensure cookies are sent for session
+        });
+        
+        if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            return null; // User not authenticated
+          }
+          
+          // Clone response to prevent 'body stream already read' error
+          const responseClone = response.clone();
+          let errorMessage = "Failed to fetch user";
+          
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorMessage;
+          } catch {
+            // If JSON parsing fails, try to get text
+            try {
+              const errorText = await responseClone.text();
+              errorMessage = errorText || errorMessage;
+            } catch {
+              // Keep default error message
+            }
+          }
+          
+          throw new Error(errorMessage);
         }
-        throw new Error("Failed to fetch user");
+        
+        const data = await response.json();
+        return data.user;
+      } catch (error) {
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+          throw new Error("Network error - please check your connection");
+        }
+        throw error;
       }
-      const data = await response.json();
-      return data.user;
     },
-    retry: false,
+    retry: (failureCount, error) => {
+      // Don't retry on auth errors or network errors
+      if (error?.message?.includes('Network error') || 
+          error?.message?.includes('Failed to fetch user')) {
+        return false;
+      }
+      return failureCount < 2;
+    },
     staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
   });
 }
 
@@ -60,36 +97,57 @@ export function useLoginMutation() {
 
   return useMutation({
     mutationFn: async ({ email, password }: { email: string; password: string }) => {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      // Correction robuste : tente de parser la réponse comme JSON, sinon récupère le texte
-      let data: any;
-      let text: string | undefined;
       try {
-        data = await response.json();
-      } catch {
-        text = await response.text();
-      }
+        const response = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include", // Important for session cookies
+          body: JSON.stringify({ email, password }),
+        });
 
-      if (!response.ok) {
-        throw new Error(
-          (data && data.message) ||
-          text ||
-          "Erreur inconnue lors de la connexion"
-        );
-      }
+        // Clone response to prevent 'body stream already read' error
+        const responseClone = response.clone();
+        let data: any;
+        let errorMessage: string;
 
-      return data;
+        try {
+          data = await response.json();
+          errorMessage = data?.message || "Login failed";
+        } catch {
+          // If JSON parsing fails, try to get text from clone
+          try {
+            const text = await responseClone.text();
+            errorMessage = text || "Login failed - invalid response format";
+          } catch {
+            errorMessage = "Login failed - server error";
+          }
+        }
+
+        if (!response.ok) {
+          throw new Error(errorMessage);
+        }
+
+        return data;
+      } catch (error) {
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+          throw new Error("Network error - please check your connection");
+        }
+        throw error;
+      }
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(["auth", "me"], data.user);
+      // Update auth query cache with user data
+      if (data?.user) {
+        queryClient.setQueryData(["auth", "me"], data.user);
+      }
+      // Invalidate and refetch auth queries
       queryClient.invalidateQueries({ queryKey: ["auth"] });
+    },
+    onError: () => {
+      // Clear auth data on login error
+      queryClient.setQueryData(["auth", "me"], null);
     },
   });
 }
@@ -105,24 +163,57 @@ export function useRegisterMutation() {
       lastName?: string;
       role?: string;
     }) => {
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(userData),
-      });
+      try {
+        const response = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include", // Important for session cookies
+          body: JSON.stringify(userData),
+        });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Registration failed");
+        // Clone response to prevent 'body stream already read' error
+        const responseClone = response.clone();
+        let data: any;
+        let errorMessage: string;
+
+        try {
+          data = await response.json();
+          errorMessage = data?.message || "Registration failed";
+        } catch {
+          // If JSON parsing fails, try to get text from clone
+          try {
+            const text = await responseClone.text();
+            errorMessage = text || "Registration failed - invalid response format";
+          } catch {
+            errorMessage = "Registration failed - server error";
+          }
+        }
+
+        if (!response.ok) {
+          throw new Error(errorMessage);
+        }
+
+        return data;
+      } catch (error) {
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+          throw new Error("Network error - please check your connection");
+        }
+        throw error;
       }
-
-      return response.json();
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(["auth", "me"], data.user);
+      // Update auth query cache with user data
+      if (data?.user) {
+        queryClient.setQueryData(["auth", "me"], data.user);
+      }
+      // Invalidate and refetch auth queries
       queryClient.invalidateQueries({ queryKey: ["auth"] });
+    },
+    onError: () => {
+      // Clear auth data on registration error
+      queryClient.setQueryData(["auth", "me"], null);
     },
   });
 }
@@ -132,19 +223,51 @@ export function useLogoutMutation() {
   
   return useMutation({
     mutationFn: async () => {
-      const response = await fetch("/api/auth/logout", {
-        method: "POST",
-      });
+      try {
+        const response = await fetch("/api/auth/logout", {
+          method: "POST",
+          credentials: "include", // Important for session cookies
+        });
 
-      if (!response.ok) {
-        throw new Error("Logout failed");
+        // Clone response to prevent 'body stream already read' error
+        const responseClone = response.clone();
+        let data: any;
+        let errorMessage: string;
+
+        try {
+          data = await response.json();
+          errorMessage = data?.message || "Logout failed";
+        } catch {
+          // If JSON parsing fails, try to get text from clone
+          try {
+            const text = await responseClone.text();
+            errorMessage = text || "Logout failed - invalid response format";
+          } catch {
+            errorMessage = "Logout failed - server error";
+          }
+        }
+
+        if (!response.ok) {
+          throw new Error(errorMessage);
+        }
+
+        return data;
+      } catch (error) {
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+          throw new Error("Network error - please check your connection");
+        }
+        throw error;
       }
-
-      return response.json();
     },
     onSuccess: () => {
+      // Clear all auth-related data
       queryClient.setQueryData(["auth", "me"], null);
+      // Clear all cached data to ensure fresh state after logout
       queryClient.clear();
+    },
+    onError: () => {
+      // Even if logout fails, clear local auth state
+      queryClient.setQueryData(["auth", "me"], null);
     },
   });
 }
@@ -152,20 +275,45 @@ export function useLogoutMutation() {
 export function useForgotPasswordMutation() {
   return useMutation({
     mutationFn: async ({ email }: { email: string }) => {
-      const response = await fetch("/api/auth/forgot-password", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email }),
-      });
+      try {
+        const response = await fetch("/api/auth/forgot-password", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({ email }),
+        });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Password reset failed");
+        // Clone response to prevent 'body stream already read' error
+        const responseClone = response.clone();
+        let data: any;
+        let errorMessage: string;
+
+        try {
+          data = await response.json();
+          errorMessage = data?.message || "Password reset failed";
+        } catch {
+          // If JSON parsing fails, try to get text from clone
+          try {
+            const text = await responseClone.text();
+            errorMessage = text || "Password reset failed - invalid response format";
+          } catch {
+            errorMessage = "Password reset failed - server error";
+          }
+        }
+
+        if (!response.ok) {
+          throw new Error(errorMessage);
+        }
+
+        return data;
+      } catch (error) {
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+          throw new Error("Network error - please check your connection");
+        }
+        throw error;
       }
-
-      return response.json();
     },
   });
 }
