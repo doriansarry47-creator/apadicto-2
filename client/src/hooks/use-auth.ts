@@ -162,10 +162,53 @@ export function useForgotPasswordMutation() {
 
       if (!response.ok) {
         const error = await response.json();
+        throw new Error(error.message || "Password reset request failed");
+      }
+
+      return response.json();
+    },
+  });
+}
+
+export function useResetPasswordMutation() {
+  return useMutation({
+    mutationFn: async ({ token, newPassword }: { token: string; newPassword: string }) => {
+      const response = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ token, newPassword }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
         throw new Error(error.message || "Password reset failed");
       }
 
       return response.json();
     },
+  });
+}
+
+export function useValidateResetTokenQuery(token: string | null) {
+  return useQuery({
+    queryKey: ["auth", "validate-reset-token", token],
+    queryFn: async () => {
+      if (!token) {
+        throw new Error("No token provided");
+      }
+
+      const response = await fetch(`/api/auth/validate-reset-token?token=${encodeURIComponent(token)}`);
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Token validation failed");
+      }
+
+      return response.json();
+    },
+    enabled: !!token,
+    retry: false,
   });
 }

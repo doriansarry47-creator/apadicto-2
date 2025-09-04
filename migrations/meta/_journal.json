@@ -8,6 +8,13 @@
       "when": 1756304214078,
       "tag": "0000_medical_marvel_boy",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1756975956144,
+      "tag": "0001_shocking_yellow_claw",
+      "breakpoints": true
     }
   ]
 }

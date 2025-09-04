@@ -8,6 +8,8 @@ import {
   beckAnalyses,
   userBadges,
   userStats,
+  passwordResetTokens,
+  passwordResetAttempts,
   type User,
   type InsertUser,
   type Exercise,
@@ -23,6 +25,10 @@ import {
   type UserBadge,
   type InsertUserBadge,
   type UserStats,
+  type PasswordResetToken,
+  type InsertPasswordResetToken,
+  type PasswordResetAttempt,
+  type InsertPasswordResetAttempt,
 } from "../shared/schema.js";
 import { randomUUID } from "crypto";
 import { eq, desc, sql, and, gte } from "drizzle-orm";
@@ -65,6 +71,18 @@ export interface IStorage {
   getUserBadges(userId: string): Promise<UserBadge[]>;
   awardBadge(badge: InsertUserBadge): Promise<UserBadge>;
   checkAndAwardBadges(userId: string): Promise<UserBadge[]>;
+
+  // Password reset token operations
+  createPasswordResetToken(token: InsertPasswordResetToken): Promise<PasswordResetToken>;
+  getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined>;
+  markPasswordResetTokenAsUsed(tokenId: string): Promise<void>;
+  cleanupExpiredPasswordResetTokens(expirationDate: Date): Promise<number>;
+
+  // Password reset attempt operations
+  createPasswordResetAttempt(attempt: InsertPasswordResetAttempt): Promise<PasswordResetAttempt>;
+  getPasswordResetAttempt(email: string, ipAddress: string): Promise<PasswordResetAttempt | undefined>;
+  updatePasswordResetAttempt(attemptId: string, data: Partial<PasswordResetAttempt>): Promise<PasswordResetAttempt>;
+  cleanupExpiredPasswordResetAttempts(expirationDate: Date): Promise<number>;
 }
 
 export class DbStorage implements IStorage {
@@ -272,6 +290,59 @@ export class DbStorage implements IStorage {
     }
     // Other badge logic can be added here...
     return newBadges;
+  }
+
+  async createPasswordResetToken(insertToken: InsertPasswordResetToken): Promise<PasswordResetToken> {
+    return db.insert(passwordResetTokens).values(insertToken).returning().then(rows => rows[0]);
+  }
+
+  async getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined> {
+    return db.select().from(passwordResetTokens)
+      .where(and(eq(passwordResetTokens.token, token), eq(passwordResetTokens.used, false)))
+      .then(rows => rows[0]);
+  }
+
+  async markPasswordResetTokenAsUsed(tokenId: string): Promise<void> {
+    await db.update(passwordResetTokens)
+      .set({ used: true })
+      .where(eq(passwordResetTokens.id, tokenId));
+  }
+
+  async cleanupExpiredPasswordResetTokens(expirationDate: Date): Promise<number> {
+    const result = await db.delete(passwordResetTokens)
+      .where(gte(passwordResetTokens.expiresAt, expirationDate))
+      .returning();
+    return result.length;
+  }
+
+  async createPasswordResetAttempt(insertAttempt: InsertPasswordResetAttempt): Promise<PasswordResetAttempt> {
+    return db.insert(passwordResetAttempts).values(insertAttempt).returning().then(rows => rows[0]);
+  }
+
+  async getPasswordResetAttempt(email: string, ipAddress: string): Promise<PasswordResetAttempt | undefined> {
+    return db.select().from(passwordResetAttempts)
+      .where(and(eq(passwordResetAttempts.email, email), eq(passwordResetAttempts.ipAddress, ipAddress)))
+      .orderBy(desc(passwordResetAttempts.lastAttemptAt))
+      .limit(1)
+      .then(rows => rows[0]);
+  }
+
+  async updatePasswordResetAttempt(attemptId: string, data: Partial<PasswordResetAttempt>): Promise<PasswordResetAttempt> {
+    return db.update(passwordResetAttempts)
+      .set({ ...data, lastAttemptAt: new Date() })
+      .where(eq(passwordResetAttempts.id, attemptId))
+      .returning()
+      .then(rows => rows[0]);
+  }
+
+  async cleanupExpiredPasswordResetAttempts(expirationDate: Date): Promise<number> {
+    const result = await db.delete(passwordResetAttempts)
+      .where(and(
+        eq(passwordResetAttempts.blockedUntil, null),
+        gte(passwordResetAttempts.lastAttemptAt, expirationDate)
+      ))
+      .returning();
+    return result.length;
   }
 }
 

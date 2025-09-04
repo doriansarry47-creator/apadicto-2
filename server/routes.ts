@@ -94,18 +94,67 @@ export function registerRoutes(app: Express) {
         return res.status(400).json({ message: "Email requis" });
       }
 
-      const temporaryPassword = await AuthService.resetPassword(email);
+      // Get client IP address
+      const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
+
+      const result = await AuthService.requestPasswordReset(email, ipAddress);
       
-      // En production, vous devriez envoyer le mot de passe par email
-      // Pour cette version de développement, on le renvoie dans la réponse
-      res.json({ 
-        message: "Mot de passe réinitialisé avec succès",
-        temporaryPassword: temporaryPassword,
-        info: "Votre nouveau mot de passe temporaire est affiché ci-dessus. Veuillez le changer après connexion."
-      });
+      if (result.success) {
+        res.json({ message: result.message });
+      } else {
+        res.status(429).json({ message: result.message });
+      }
     } catch (error) {
-      res.status(400).json({ 
-        message: error instanceof Error ? error.message : "Erreur lors de la réinitialisation" 
+      console.error('❌ Password reset request error:', error);
+      res.status(500).json({ 
+        message: "Erreur lors de la demande de réinitialisation" 
+      });
+    }
+  });
+
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { token, newPassword } = req.body;
+      
+      if (!token || !newPassword) {
+        return res.status(400).json({ message: "Token et nouveau mot de passe requis" });
+      }
+
+      const result = await AuthService.resetPasswordWithToken(token, newPassword);
+      
+      if (result.success) {
+        res.json({ message: result.message });
+      } else {
+        res.status(400).json({ message: result.message });
+      }
+    } catch (error) {
+      console.error('❌ Password reset error:', error);
+      res.status(500).json({ 
+        message: "Erreur lors de la réinitialisation du mot de passe" 
+      });
+    }
+  });
+
+  app.get("/api/auth/validate-reset-token", async (req, res) => {
+    try {
+      const { token } = req.query;
+      
+      if (!token || typeof token !== 'string') {
+        return res.status(400).json({ message: "Token requis" });
+      }
+
+      const result = await AuthService.validateResetToken(token);
+      
+      if (result.valid) {
+        res.json({ valid: true });
+      } else {
+        res.status(400).json({ valid: false, message: result.message });
+      }
+    } catch (error) {
+      console.error('❌ Token validation error:', error);
+      res.status(500).json({ 
+        valid: false, 
+        message: "Erreur lors de la validation du token" 
       });
     }
   });
