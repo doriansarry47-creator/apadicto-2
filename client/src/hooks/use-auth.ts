@@ -54,7 +54,7 @@ export function useAuthQuery() {
   });
 }
 
-// PATCHED LOGIN MUTATION
+// FIXED LOGIN MUTATION - Corriger l'erreur "body stream already read"
 export function useLoginMutation() {
   const queryClient = useQueryClient();
 
@@ -68,21 +68,27 @@ export function useLoginMutation() {
         body: JSON.stringify({ email, password }),
       });
 
-      // Correction robuste : tente de parser la réponse comme JSON, sinon récupère le texte
+      // CORRECTIF : Cloner la réponse pour pouvoir la lire plusieurs fois si nécessaire
+      const responseClone = response.clone();
+      
+      // Tenter de parser comme JSON d'abord
       let data: any;
-      let text: string | undefined;
+      let errorMessage: string;
+      
       try {
         data = await response.json();
-      } catch {
-        text = await response.text();
+        errorMessage = data?.message || "Erreur de connexion";
+      } catch (jsonError) {
+        // Si JSON parse échoue, lire comme texte depuis le clone
+        try {
+          errorMessage = await responseClone.text() || "Erreur inconnue lors de la connexion";
+        } catch (textError) {
+          errorMessage = "Erreur de communication avec le serveur";
+        }
       }
 
       if (!response.ok) {
-        throw new Error(
-          (data && data.message) ||
-          text ||
-          "Erreur inconnue lors de la connexion"
-        );
+        throw new Error(errorMessage);
       }
 
       return data;
@@ -113,12 +119,28 @@ export function useRegisterMutation() {
         body: JSON.stringify(userData),
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Registration failed");
+      // CORRECTIF : Cloner la réponse pour éviter l'erreur "body stream already read"
+      const responseClone = response.clone();
+      
+      let data: any;
+      let errorMessage: string;
+      
+      try {
+        data = await response.json();
+        errorMessage = data?.message || "Registration failed";
+      } catch (jsonError) {
+        try {
+          errorMessage = await responseClone.text() || "Registration failed";
+        } catch (textError) {
+          errorMessage = "Erreur de communication avec le serveur";
+        }
       }
 
-      return response.json();
+      if (!response.ok) {
+        throw new Error(errorMessage);
+      }
+
+      return data;
     },
     onSuccess: (data) => {
       queryClient.setQueryData(["auth", "me"], data.user);
@@ -136,11 +158,36 @@ export function useLogoutMutation() {
         method: "POST",
       });
 
+      // CORRECTIF : Gestion robuste des réponses pour éviter "body stream already read"
+      let data: any = {};
+      
       if (!response.ok) {
-        throw new Error("Logout failed");
+        const responseClone = response.clone();
+        let errorMessage: string;
+        
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData?.message || "Logout failed";
+        } catch (jsonError) {
+          try {
+            errorMessage = await responseClone.text() || "Logout failed";
+          } catch (textError) {
+            errorMessage = "Erreur de déconnexion";
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
 
-      return response.json();
+      // Tenter de parser la réponse de succès si elle contient du JSON
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        // Si pas de JSON, retourner un objet vide (déconnexion réussie)
+        data = { success: true };
+      }
+
+      return data;
     },
     onSuccess: () => {
       queryClient.setQueryData(["auth", "me"], null);
@@ -160,12 +207,28 @@ export function useForgotPasswordMutation() {
         body: JSON.stringify({ email }),
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Password reset failed");
+      // CORRECTIF : Cloner la réponse pour éviter "body stream already read"
+      const responseClone = response.clone();
+      
+      let data: any;
+      let errorMessage: string;
+      
+      try {
+        data = await response.json();
+        errorMessage = data?.message || "Password reset failed";
+      } catch (jsonError) {
+        try {
+          errorMessage = await responseClone.text() || "Password reset failed";
+        } catch (textError) {
+          errorMessage = "Erreur de communication avec le serveur";
+        }
       }
 
-      return response.json();
+      if (!response.ok) {
+        throw new Error(errorMessage);
+      }
+
+      return data;
     },
   });
 }

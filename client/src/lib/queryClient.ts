@@ -2,8 +2,17 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    // CORRECTIF : Cloner la réponse pour pouvoir lire le stream d'erreur
+    const resClone = res.clone();
+    let errorMessage: string;
+    
+    try {
+      errorMessage = await resClone.text();
+    } catch (textError) {
+      errorMessage = res.statusText || "Unknown error";
+    }
+    
+    throw new Error(`${res.status}: ${errorMessage}`);
   }
 }
 
@@ -19,6 +28,7 @@ export async function apiRequest(
     credentials: "include",
   });
 
+  // CORRECTIF : Vérifier les erreurs AVANT de retourner la réponse
   await throwIfResNotOk(res);
   return res;
 }
@@ -37,8 +47,12 @@ export const getQueryFn: <T>(options: {
       return null;
     }
 
+    // CORRECTIF : Cloner la réponse AVANT de vérifier les erreurs
+    const resClone = res.clone();
     await throwIfResNotOk(res);
-    return await res.json();
+    
+    // Utiliser le clone pour parser le JSON afin d'éviter "body stream already read"
+    return await resClone.json();
   };
 
 export const queryClient = new QueryClient({
