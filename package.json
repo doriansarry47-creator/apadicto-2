@@ -7,7 +7,7 @@
     "dev": "NODE_ENV=development tsx server/index.ts",
     "build:client": "vite build",
     "build:server": "esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist/server",
-    "build:api": "esbuild api/index.ts --platform=node --packages=external --bundle --format=cjs --outdir=api --out-extension:.js=.cjs --external:@neondatabase/serverless",
+    "build:api": "esbuild server/index.ts --platform=node --packages=external --bundle --format=cjs --outdir=api --external:@neondatabase/serverless",
     "build": "npm run build:client && npm run build:server",
     "vercel-build": "npm run build:client && npm run build:api",
     "start": "NODE_ENV=production node dist/server/index.js",
