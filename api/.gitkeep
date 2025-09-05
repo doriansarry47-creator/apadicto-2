@@ -1,0 +1,1 @@
+# This file ensures the api directory is tracked by git even when build artifacts are ignored
