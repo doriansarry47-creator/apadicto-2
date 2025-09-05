@@ -22,9 +22,11 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   // compatible transform (i.e. "__esModule" has not been set), then set
   // "default" to the CommonJS "module.exports" for node compatibility.
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-  mod
+  mod,
+  "default",
+  null
 ));
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod, "default", null);
 
 // api/index.ts
 var index_exports = {};
@@ -32,14 +34,14 @@ __export(index_exports, {
   default: () => index_default
 });
 module.exports = __toCommonJS(index_exports);
-var import_express = __toESM(require("express"), 1);
-var import_express_session = __toESM(require("express-session"), 1);
-var import_memorystore = __toESM(require("memorystore"), 1);
-var import_bcryptjs = __toESM(require("bcryptjs"), 1);
+var import_express = __toESM(require("express"), 1, {});
+var import_express_session = __toESM(require("express-session"), 1, {});
+var import_memorystore = __toESM(require("memorystore"), 1, {});
+var import_bcryptjs = __toESM(require("bcryptjs"), 1, {});
 var import_serverless = require("@neondatabase/serverless");
 var import_neon_serverless = require("drizzle-orm/neon-serverless");
 var import_drizzle_orm = require("drizzle-orm");
-var import_ws = __toESM(require("ws"), 1);
+var import_ws = __toESM(require("ws"), 1, {});
 
 // shared/schema.js
 var import_pg_core = require("drizzle-orm/pg-core");
