@@ -26,7 +26,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// api/index.ts
+// server/index.ts
 var index_exports = {};
 __export(index_exports, {
   default: () => index_default
@@ -105,7 +105,7 @@ var selectExerciseSessionSchema = (0, import_drizzle_zod.createSelectSchema)(exe
 var insertUserSchema = (0, import_drizzle_zod.createInsertSchema)(users);
 var selectUserSchema = (0, import_drizzle_zod.createSelectSchema)(users);
 
-// api/index.ts
+// server/index.ts
 var app = (0, import_express.default)();
 app.use(import_express.default.json());
 app.use(import_express.default.urlencoded({ extended: false }));
