@@ -47,17 +47,35 @@ export default function Profile() {
   const queryClient = useQueryClient();
 
   const updateUserMutation = useMutation({
-    mutationFn: (updatedUser: { firstName: string; lastName: string; email?: string }) => {
-      return fetch("/api/users/profile", {
+    mutationFn: async (updatedUser: { firstName: string; lastName: string; email?: string }) => {
+      const response = await fetch("/api/users/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updatedUser),
-      }).then((res) => {
-        if (!res.ok) {
-          return res.json().then(err => { throw new Error(err.message || "Failed to update profile") });
-        }
-        return res.json();
       });
+
+      // CORRECTIF : Cloner la réponse pour éviter "body stream already read"
+      const responseClone = response.clone();
+      
+      let data: any;
+      let errorMessage: string;
+      
+      try {
+        data = await response.json();
+        errorMessage = data?.message || "Failed to update profile";
+      } catch (jsonError) {
+        try {
+          errorMessage = await responseClone.text() || "Failed to update profile";
+        } catch (textError) {
+          errorMessage = "Erreur de communication avec le serveur";
+        }
+      }
+
+      if (!response.ok) {
+        throw new Error(errorMessage);
+      }
+
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users/profile"] });
@@ -126,17 +144,35 @@ export default function Profile() {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const updatePasswordMutation = useMutation({
-    mutationFn: (passwords: { oldPassword: string; newPassword: string }) => {
-      return fetch("/api/users/password", {
+    mutationFn: async (passwords: { oldPassword: string; newPassword: string }) => {
+      const response = await fetch("/api/users/password", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(passwords),
-      }).then((res) => {
-        if (!res.ok) {
-          return res.json().then(err => { throw new Error(err.message || "Failed to update password") });
-        }
-        return res.json();
       });
+
+      // CORRECTIF : Cloner la réponse pour éviter "body stream already read"
+      const responseClone = response.clone();
+      
+      let data: any;
+      let errorMessage: string;
+      
+      try {
+        data = await response.json();
+        errorMessage = data?.message || "Failed to update password";
+      } catch (jsonError) {
+        try {
+          errorMessage = await responseClone.text() || "Failed to update password";
+        } catch (textError) {
+          errorMessage = "Erreur de communication avec le serveur";
+        }
+      }
+
+      if (!response.ok) {
+        throw new Error(errorMessage);
+      }
+
+      return data;
     },
     onSuccess: () => {
       toast({
@@ -212,13 +248,27 @@ export default function Profile() {
   };
 
   const deleteAccountMutation = useMutation({
-    mutationFn: () => {
-      return fetch("/api/users/profile", {
+    mutationFn: async () => {
+      const response = await fetch("/api/users/profile", {
         method: "DELETE",
-      }).then((res) => {
-        if (!res.ok) throw new Error("Failed to delete account");
-        return res.json();
       });
+
+      // CORRECTIF : Gestion robuste des réponses pour éviter "body stream already read"
+      let data: any = {};
+      
+      if (!response.ok) {
+        throw new Error("Failed to delete account");
+      }
+
+      // Tenter de parser la réponse de succès si elle contient du JSON
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        // Si pas de JSON, retourner un objet vide (suppression réussie)
+        data = { success: true };
+      }
+
+      return data;
     },
     onSuccess: () => {
       toast({
@@ -313,7 +363,19 @@ export default function Profile() {
 
   const [, setLocation] = useLocation();
   const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
+    try {
+      // CORRECTIF : Gestion robuste de la déconnexion
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      
+      // On vérifie que la déconnexion s'est bien passée, mais on ne force pas la lecture de la réponse
+      if (!response.ok) {
+        console.warn("Logout request failed, but proceeding with local logout");
+      }
+    } catch (error) {
+      console.warn("Logout request error, but proceeding with local logout:", error);
+    }
+    
+    // Toujours effectuer la déconnexion locale
     setLocation("/login");
     queryClient.clear(); // Clear the cache on logout
   };
