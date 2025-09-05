@@ -4,5 +4,10 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
-# Keep api/index.js for Vercel deployment
-!api/index.js
+# Exclude API build artifacts
+api/index.cjs
+api/index.js
+# Keep api directory structure but exclude generated files
+!api/
+api/*
+!api/.gitkeep

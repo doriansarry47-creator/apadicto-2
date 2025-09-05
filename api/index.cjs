@@ -1,4 +1,3 @@
-// api/index.ts
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -26,6 +25,8 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+// server/index.ts
 var index_exports = {};
 __export(index_exports, {
   default: () => index_default
@@ -39,6 +40,8 @@ var import_serverless = require("@neondatabase/serverless");
 var import_neon_serverless = require("drizzle-orm/neon-serverless");
 var import_drizzle_orm = require("drizzle-orm");
 var import_ws = __toESM(require("ws"), 1);
+
+// shared/schema.js
 var import_pg_core = require("drizzle-orm/pg-core");
 var import_drizzle_zod = require("drizzle-zod");
 var users = (0, import_pg_core.pgTable)("users", {
@@ -101,6 +104,8 @@ var insertExerciseSessionSchema = (0, import_drizzle_zod.createInsertSchema)(exe
 var selectExerciseSessionSchema = (0, import_drizzle_zod.createSelectSchema)(exerciseSessions);
 var insertUserSchema = (0, import_drizzle_zod.createInsertSchema)(users);
 var selectUserSchema = (0, import_drizzle_zod.createSelectSchema)(users);
+
+// server/index.ts
 var app = (0, import_express.default)();
 app.use(import_express.default.json());
 app.use(import_express.default.urlencoded({ extended: false }));
